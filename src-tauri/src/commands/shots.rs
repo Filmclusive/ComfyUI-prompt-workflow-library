@@ -13,7 +13,7 @@ use crate::{
   storage::{read_json, write_json_pretty_atomic, write_text_atomic},
 };
 
-#[tauri::command]
+#[tauri::command(rename_all = "snake_case")]
 pub fn list_shots(project_dir: String, scene_id: Uuid, scene_dir: String) -> Result<Vec<Shot>, String> {
   list_shots_impl(&project_dir, &scene_dir, scene_id).map_err(|e| e.to_string())
 }
@@ -44,7 +44,7 @@ fn list_shots_impl(project_dir: &str, scene_dir_name: &str, scene_id: Uuid) -> A
   Ok(out)
 }
 
-#[tauri::command]
+#[tauri::command(rename_all = "snake_case")]
 pub fn create_shot(project_dir: String, scene_id: Uuid) -> Result<Shot, String> {
   create_shot_impl(&project_dir, scene_id).map_err(|e| e.to_string())
 }
@@ -114,7 +114,7 @@ fn create_shot_impl(project_dir: &str, scene_id: Uuid) -> AppResult<Shot> {
   Ok(shot)
 }
 
-#[tauri::command]
+#[tauri::command(rename_all = "snake_case")]
 pub fn read_shot(project_dir: String, scene_id: Uuid, shot_id: Uuid) -> Result<Shot, String> {
   read_shot_impl(&project_dir, scene_id, shot_id).map_err(|e| e.to_string())
 }
@@ -154,7 +154,7 @@ fn read_shot_impl(project_dir: &str, scene_id: Uuid, shot_id: Uuid) -> AppResult
   Err(AppError::NotFound("Shot not found".to_string()))
 }
 
-#[tauri::command]
+#[tauri::command(rename_all = "snake_case")]
 pub fn update_shot_fields(project_dir: String, scene_id: Uuid, shot_id: Uuid, shot: Shot) -> Result<Shot, String> {
   update_shot_fields_impl(&project_dir, scene_id, shot_id, &shot)
     .map(|_| shot)
@@ -196,4 +196,3 @@ fn update_shot_fields_impl(project_dir: &str, scene_id: Uuid, shot_id: Uuid, sho
   }
   Err(AppError::NotFound("Shot not found".to_string()))
 }
-

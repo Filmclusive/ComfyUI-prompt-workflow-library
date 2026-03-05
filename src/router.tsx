@@ -6,6 +6,7 @@ import { ShotPage } from "./ui/pages/ShotPage";
 import { SettingsPage } from "./ui/pages/SettingsPage";
 import { WorkflowManagerPage } from "./ui/pages/WorkflowManagerPage";
 import { PromptLibraryPage } from "./ui/pages/PromptLibraryPage";
+import { DictionaryPage } from "./ui/pages/DictionaryPage";
 
 export const router = createBrowserRouter([
   {
@@ -17,6 +18,7 @@ export const router = createBrowserRouter([
       { path: "project/shot", element: <ShotPage /> },
       { path: "prompts", element: <PromptLibraryPage /> },
       { path: "workflows", element: <WorkflowManagerPage /> },
+      { path: "dictionary", element: <DictionaryPage /> },
       { path: "settings", element: <SettingsPage /> },
     ],
   },

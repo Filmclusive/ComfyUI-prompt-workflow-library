@@ -12,7 +12,7 @@ use crate::{
   storage::{read_json, write_json_pretty_atomic},
 };
 
-#[tauri::command]
+#[tauri::command(rename_all = "snake_case")]
 pub fn create_project(app: AppHandle, name: String, dir: String) -> Result<String, String> {
   create_project_impl(&app, &name, &dir)
     .map(|p| p.to_string_lossy().to_string())
@@ -50,7 +50,7 @@ fn create_project_impl(app: &AppHandle, name: &str, dir: &str) -> AppResult<Path
   Ok(project_dir)
 }
 
-#[tauri::command]
+#[tauri::command(rename_all = "snake_case")]
 pub fn open_project(app: AppHandle, dir: String) -> Result<String, String> {
   open_project_impl(&app, &dir)
     .map(|p| p.to_string_lossy().to_string())
@@ -72,14 +72,14 @@ fn open_project_impl(app: &AppHandle, dir: &str) -> AppResult<PathBuf> {
   Ok(project_dir)
 }
 
-#[tauri::command]
+#[tauri::command(rename_all = "snake_case")]
 pub fn read_project(project_dir: String) -> Result<Project, String> {
   let p = PathBuf::from(&project_dir);
   let pj = project_json_path(&p);
   read_json(&pj).map_err(|e| e.to_string())
 }
 
-#[tauri::command]
+#[tauri::command(rename_all = "snake_case")]
 pub fn write_project_metadata(project_dir: String, project: Project) -> Result<Project, String> {
   let p = PathBuf::from(&project_dir);
   let pj = project_json_path(&p);
@@ -87,4 +87,3 @@ pub fn write_project_metadata(project_dir: String, project: Project) -> Result<P
     .map(|_| project)
     .map_err(|e| e.to_string())
 }
-

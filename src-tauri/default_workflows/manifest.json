@@ -1,0 +1,13 @@
+{
+  "workflows": [
+    {
+      "id": "6286ecfc-2b89-49c1-ac1f-ffffdf3ad70e",
+      "title": "Filmclusive approved: SDXL base workflow (example)",
+      "file": "filmclusive_sdxl_base.json",
+      "tags": ["filmclusive-approved", "model:sdxl"],
+      "models": ["sdxl"],
+      "notes": "Example starter workflow. Replace this JSON with a real ComfyUI workflow when shipping defaults."
+    }
+  ]
+}
+

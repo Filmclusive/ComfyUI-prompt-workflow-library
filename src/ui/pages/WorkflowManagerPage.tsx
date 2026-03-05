@@ -4,6 +4,8 @@ import type { WorkflowSummary } from "../../types";
 import { Button } from "../components/Button";
 import { Input } from "../components/Input";
 import { useAppState } from "../../state/AppState";
+import { open } from "@tauri-apps/api/dialog";
+import { appWindow } from "@tauri-apps/api/window";
 
 export function WorkflowManagerPage() {
   const { currentProjectDir, workspaceScope } = useAppState();
@@ -12,6 +14,7 @@ export function WorkflowManagerPage() {
   const [jsonPath, setJsonPath] = useState("");
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
+  const [dropActive, setDropActive] = useState(false);
 
   const resolvedProjectDir = useMemo(() => {
     if (workspaceScope !== "project") return null;
@@ -46,11 +49,20 @@ export function WorkflowManagerPage() {
     setBusy(true);
     setErr(null);
     try {
+      const p = jsonPath.trim();
+      if (!p) {
+        setErr("Choose a workflow JSON file first.");
+        return;
+      }
+      if (!p.toLowerCase().endsWith(".json")) {
+        setErr("Workflow file must be a .json file.");
+        return;
+      }
       await cmd<void>("import_workflow", {
         scope,
         project_dir: resolvedProjectDir,
         title,
-        workflow_json_path: jsonPath,
+        workflow_json_path: p,
       });
       setJsonPath("");
       await refresh();
@@ -59,6 +71,81 @@ export function WorkflowManagerPage() {
     } finally {
       setBusy(false);
     }
+  }
+
+  async function chooseWorkflowFile() {
+    setErr(null);
+    try {
+      const selected = await open({
+        multiple: false,
+        filters: [{ name: "Workflow JSON", extensions: ["json"] }],
+      });
+      if (typeof selected === "string") {
+        setJsonPath(selected);
+        const name = selected.split(/[/\\]/).pop() ?? "";
+        const base = name.replace(/\.json$/i, "");
+        if (base && (title.trim() === "" || title === "New workflow")) {
+          setTitle(base);
+        }
+      }
+    } catch (e) {
+      setErr(String(e));
+    }
+  }
+
+  useEffect(() => {
+    let unlisten: (() => void) | null = null;
+    appWindow
+      .onFileDropEvent((event) => {
+        if (event.payload.type === "hover") {
+          setDropActive(true);
+          return;
+        }
+        if (event.payload.type === "cancel") {
+          setDropActive(false);
+          return;
+        }
+        if (event.payload.type === "drop") {
+          setDropActive(false);
+          const p = event.payload.paths?.[0];
+          if (!p) return;
+          if (!p.toLowerCase().endsWith(".json")) {
+            setErr("Dropped file must be a .json workflow.");
+            return;
+          }
+          setJsonPath(p);
+          const name = p.split(/[/\\]/).pop() ?? "";
+          const base = name.replace(/\.json$/i, "");
+          if (base && (title.trim() === "" || title === "New workflow")) {
+            setTitle(base);
+          }
+        }
+      })
+      .then((fn) => {
+        unlisten = fn;
+      })
+      .catch(() => {
+        unlisten = null;
+      });
+    return () => unlisten?.();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const approved = useMemo(
+    () => items.filter((w) => w.tags.includes("filmclusive-approved")),
+    [items],
+  );
+  const custom = useMemo(
+    () => items.filter((w) => !w.tags.includes("filmclusive-approved")),
+    [items],
+  );
+
+  function modelsFromTags(tags: string[]) {
+    const models = tags
+      .filter((t) => t.startsWith("model:"))
+      .map((t) => t.slice("model:".length))
+      .filter(Boolean);
+    return models.length ? models.join(", ") : null;
   }
 
   return (
@@ -92,9 +179,19 @@ export function WorkflowManagerPage() {
       <div className="mt-6 grid grid-cols-1 gap-4 md:grid-cols-2">
         <div className="rounded-lg border border-border bg-surface p-4">
           <div className="text-sm font-semibold text-fg">
-            Import workflow
+            Import and save
           </div>
           <div className="mt-3 space-y-3">
+            <div
+              className={[
+                "rounded-md border border-dashed px-3 py-3 text-sm text-muted",
+                dropActive
+                  ? "border-accent bg-accent/10 text-fg"
+                  : "border-border bg-surface",
+              ].join(" ")}
+            >
+              Drag a workflow JSON into this window to select it, or choose a file.
+            </div>
             <div>
               <div className="text-xs font-medium text-muted-2">Title</div>
               <div className="mt-1">
@@ -103,14 +200,21 @@ export function WorkflowManagerPage() {
             </div>
             <div>
               <div className="text-xs font-medium text-muted-2">
-                Path to workflow JSON
+                Workflow JSON file
               </div>
-              <div className="mt-1">
+              <div className="mt-1 flex items-center gap-2">
                 <Input
                   value={jsonPath}
                   onChange={setJsonPath}
                   placeholder="/path/to/workflow.json"
                 />
+                <Button
+                  variant="secondary"
+                  onClick={chooseWorkflowFile}
+                  disabled={busy || (workspaceScope === "project" && !currentProjectDir)}
+                >
+                  Choose
+                </Button>
               </div>
             </div>
             <Button
@@ -121,7 +225,7 @@ export function WorkflowManagerPage() {
                 (workspaceScope === "project" && !currentProjectDir)
               }
             >
-              Import
+              Import and save
             </Button>
           </div>
         </div>
@@ -129,22 +233,66 @@ export function WorkflowManagerPage() {
         <div className="rounded-lg border border-border bg-surface p-4">
           <div className="text-sm font-semibold text-fg">Saved</div>
           <div className="mt-3 space-y-2">
-            {items.map((w) => (
-              <div
-                key={w.id}
-                className="rounded-md border border-border bg-surface px-3 py-2"
-              >
-                <div className="text-sm font-medium text-fg">
-                  {w.title}
+            {approved.length > 0 && (
+              <div className="pt-1">
+                <div className="text-xs font-semibold text-fg">
+                  Filmclusive approved
                 </div>
-                <div className="mt-1 text-xs text-muted-2">
-                  Updated {new Date(w.updatedAt).toLocaleString()}
-                </div>
-                <div className="mt-1 text-xs text-muted-2">
-                  {w.tags.length ? w.tags.join(", ") : "No tags"}
+                <div className="mt-2 space-y-2">
+                  {approved.map((w) => (
+                    <div
+                      key={w.id}
+                      className="rounded-md border border-border bg-surface px-3 py-2"
+                    >
+                      <div className="text-sm font-medium text-fg">
+                        {w.title}
+                      </div>
+                      <div className="mt-1 text-xs text-muted-2">
+                        Updated {new Date(w.updatedAt).toLocaleString()}
+                      </div>
+                      {modelsFromTags(w.tags) && (
+                        <div className="mt-1 text-xs text-muted-2">
+                          Models {modelsFromTags(w.tags)}
+                        </div>
+                      )}
+                      <div className="mt-1 text-xs text-muted-2">
+                        {w.tags.length ? w.tags.join(", ") : "No tags"}
+                      </div>
+                    </div>
+                  ))}
                 </div>
               </div>
-            ))}
+            )}
+            {custom.length > 0 && (
+              <div className="pt-2">
+                <div className="text-xs font-semibold text-fg">
+                  Custom
+                </div>
+                <div className="mt-2 space-y-2">
+                  {custom.map((w) => (
+                    <div
+                      key={w.id}
+                      className="rounded-md border border-border bg-surface px-3 py-2"
+                    >
+                      <div className="text-sm font-medium text-fg">
+                        {w.title}
+                      </div>
+                      <div className="mt-1 text-xs text-muted-2">
+                        Updated {new Date(w.updatedAt).toLocaleString()}
+                      </div>
+                      {modelsFromTags(w.tags) && (
+                        <div className="mt-1 text-xs text-muted-2">
+                          Models {modelsFromTags(w.tags)}
+                        </div>
+                      )}
+                      <div className="mt-1 text-xs text-muted-2">
+                        {w.tags.length ? w.tags.join(", ") : "No tags"}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
             {items.length === 0 && (
               <div className="text-sm text-muted">No workflows yet.</div>
             )}

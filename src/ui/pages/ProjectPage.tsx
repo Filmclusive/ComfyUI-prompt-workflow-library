@@ -5,7 +5,6 @@ import { cmd } from "../../lib/tauri";
 import { useAppState } from "../../state/AppState";
 import type { Project, Scene, Shot } from "../../types";
 import { Button } from "../components/Button";
-import { Input } from "../components/Input";
 
 export function ProjectPage() {
   const nav = useNavigate();
@@ -16,13 +15,13 @@ export function ProjectPage() {
     setProject,
     scenes,
     setScenes,
+    selectedSceneId,
+    setSelectedSceneId,
     shotsBySceneId,
     setShotsBySceneId,
   } = useAppState();
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
-  const [newSceneTitle, setNewSceneTitle] = useState("");
-  const [selectedSceneId, setSelectedSceneId] = useState<string | null>(null);
   const [includeHistory, setIncludeHistory] = useState(false);
   const [includeAttachments, setIncludeAttachments] = useState(true);
 
@@ -39,43 +38,42 @@ export function ProjectPage() {
       cmd<Project>("read_project", { project_dir: currentProjectDir }),
       cmd<Scene[]>("list_scenes", { project_dir: currentProjectDir }),
     ])
-      .then(async ([p, sc]) => {
+      .then(([p, sc]) => {
         setProject(p);
         setScenes(sc);
-        setSelectedSceneId((prev) => prev ?? sc[0]?.id ?? null);
-        const shots: Record<string, Shot[]> = {};
-        for (const scene of sc) {
-          shots[scene.id] = await cmd<Shot[]>("list_shots", {
-            scene_dir: scene.dirName,
-            project_dir: currentProjectDir,
-            scene_id: scene.id,
-          });
-        }
-        setShotsBySceneId(shots);
+        setSelectedSceneId((prev) => {
+          if (prev && sc.some((s) => s.id === prev)) return prev;
+          return sc[0]?.id ?? null;
+        });
+        setShotsBySceneId({});
       })
       .catch((e) => setErr(String(e)))
       .finally(() => setBusy(false));
-  }, [currentProjectDir, setProject, setScenes, setShotsBySceneId]);
+  }, [
+    currentProjectDir,
+    setProject,
+    setScenes,
+    setSelectedSceneId,
+    setShotsBySceneId,
+  ]);
 
-  async function addScene() {
-    if (!currentProjectDir) return;
+  useEffect(() => {
+    if (!currentProjectDir || !selectedSceneId) return;
+    const scene = scenes.find((s) => s.id === selectedSceneId);
+    if (!scene) return;
     setErr(null);
     setBusy(true);
-    try {
-      await cmd<Scene>("create_scene", {
-        project_dir: currentProjectDir,
-        title: newSceneTitle || null,
-      });
-      const sc = await cmd<Scene[]>("list_scenes", { project_dir: currentProjectDir });
-      setScenes(sc);
-      setSelectedSceneId((prev) => prev ?? sc[0]?.id ?? null);
-      setNewSceneTitle("");
-    } catch (e) {
-      setErr(String(e));
-    } finally {
-      setBusy(false);
-    }
-  }
+    cmd<Shot[]>("list_shots", {
+      project_dir: currentProjectDir,
+      scene_id: scene.id,
+      scene_dir: scene.dirName,
+    })
+      .then((list) => {
+        setShotsBySceneId((prev) => ({ ...prev, [scene.id]: list }));
+      })
+      .catch((e) => setErr(String(e)))
+      .finally(() => setBusy(false));
+  }, [currentProjectDir, scenes, selectedSceneId, setShotsBySceneId]);
 
   async function addShot() {
     if (!currentProjectDir || !selectedSceneId) return;
@@ -152,20 +150,8 @@ export function ProjectPage() {
           </div>
         </div>
         <div className="flex items-center gap-2">
-          <Button onClick={addShot} disabled={busy || !selectedSceneId}>
-            New shot
-          </Button>
           <Button variant="secondary" onClick={exportBundle} disabled={busy}>
             Export
-          </Button>
-          <Button
-            variant="secondary"
-            onClick={() => {
-              setWorkspaceScope("project");
-              nav("/prompts");
-            }}
-          >
-            Prompt library
           </Button>
           <Button
             variant="secondary"
@@ -185,56 +171,45 @@ export function ProjectPage() {
         </div>
       )}
 
-      <div className="mt-6 grid grid-cols-1 gap-4 md:grid-cols-3">
-        <div className="rounded-lg border border-border bg-surface p-4 md:col-span-1">
-          <div className="text-sm font-semibold text-fg">Scenes</div>
-          <div className="mt-3 space-y-2">
-            {scenes.map((s) => (
-              <button
-                key={s.id}
-                type="button"
-                onClick={() => setSelectedSceneId(s.id)}
-                className={
-                  "w-full text-left rounded-md border px-3 py-2 " +
-                  (s.id === selectedSceneId
-                    ? "border-accent bg-surface-hover"
-                    : "border-border bg-surface hover:bg-surface-hover")
-                }
-              >
-                <div className="text-sm font-medium text-fg">
-                  Scene {String(s.number).padStart(2, "0")}
-                </div>
-                <div className="mt-1 text-sm text-muted">
-                  {s.title || "Untitled"}
-                </div>
-              </button>
-            ))}
+      <div className="mt-6 rounded-lg border border-border bg-surface p-4">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+          <div className="min-w-0">
+            <div className="text-xs font-medium text-muted-2">Scene</div>
+            <select
+              value={selectedSceneId ?? ""}
+              onChange={(e) => setSelectedSceneId(e.target.value || null)}
+              className="mt-1 w-full max-w-md rounded-md border border-border bg-surface px-3 py-2 text-sm text-fg focus:outline-none focus:ring-2 focus:ring-accent-ring"
+              disabled={scenes.length === 0}
+            >
+              {scenes.length === 0 ? (
+                <option value="">No scenes yet</option>
+              ) : (
+                scenes.map((s) => (
+                  <option key={s.id} value={s.id}>
+                    {`Scene ${String(s.number).padStart(2, "0")}: ${s.title || "Untitled"}`}
+                  </option>
+                ))
+              )}
+            </select>
+            <div className="mt-1 text-xs text-muted-2">
+              Scenes live in the left sidebar.
+            </div>
           </div>
 
-          <div className="mt-4 space-y-2">
-            <div className="text-xs font-medium text-muted-2">
-              New scene title
-            </div>
-            <Input
-              value={newSceneTitle}
-              onChange={setNewSceneTitle}
-              placeholder="Scene title"
-            />
-            <Button onClick={addScene} disabled={busy}>
-              Add scene
+          <div className="flex items-center gap-2">
+            <Button onClick={addShot} disabled={busy || !selectedSceneId}>
+              New shot
             </Button>
           </div>
         </div>
 
-        <div className="rounded-lg border border-border bg-surface p-4 md:col-span-2">
+        <div className="mt-4">
           <div className="flex items-center justify-between gap-3">
             <div className="text-sm font-semibold text-fg">Shots</div>
-            <div className="text-xs text-muted-2">
-              {busy ? "Loading…" : ""}
-            </div>
+            <div className="text-xs text-muted-2">{busy ? "Loading…" : ""}</div>
           </div>
 
-          <div className="mt-3 grid grid-cols-1 gap-2 md:grid-cols-2">
+          <div className="mt-3 space-y-2">
             {selectedShots.map((shot) => (
               <Link
                 key={shot.id}
@@ -243,9 +218,9 @@ export function ProjectPage() {
                 )}&sceneId=${encodeURIComponent(
                   shot.sceneId,
                 )}&shotId=${encodeURIComponent(shot.id)}`}
-                className="rounded-md border border-border bg-surface px-3 py-2 hover:bg-surface-hover"
+                className="block rounded-md border border-border bg-surface px-3 py-2 hover:bg-surface-hover"
               >
-                <div className="flex items-center justify-between">
+                <div className="flex items-center justify-between gap-3">
                   <div className="text-sm font-medium text-fg">
                     Shot {String(shot.number).padStart(3, "0")}
                   </div>
@@ -256,38 +231,48 @@ export function ProjectPage() {
                 </div>
               </Link>
             ))}
+
             {selectedShots.length === 0 && (
-              <div className="text-sm text-muted">
-                No shots yet. Create one.
+              <div className="rounded-md border border-border bg-surface px-3 py-3 text-sm text-muted">
+                No shots yet for this scene.
               </div>
             )}
-          </div>
 
-          <div className="mt-4 border-t border-border pt-4">
-            <div className="text-sm font-semibold text-fg">Export</div>
-            <div className="mt-2 flex items-center gap-4">
-              <label className="flex items-center gap-2 text-sm text-muted">
-                <input
-                  type="checkbox"
-                  className="accent-indigo-600"
-                  checked={includeHistory}
-                  onChange={(e) => setIncludeHistory(e.target.checked)}
-                />
-                Include history
-              </label>
-              <label className="flex items-center gap-2 text-sm text-muted">
-                <input
-                  type="checkbox"
-                  className="accent-indigo-600"
-                  checked={includeAttachments}
-                  onChange={(e) => setIncludeAttachments(e.target.checked)}
-                />
-                Include attachments
-              </label>
-            </div>
-            <div className="mt-2 text-xs text-muted-2">
-              Export creates a clean zip bundle (can be shared or committed).
-            </div>
+            <Button
+              variant="secondary"
+              onClick={addShot}
+              disabled={busy || !selectedSceneId}
+              className="w-full"
+            >
+              Add another shot
+            </Button>
+          </div>
+        </div>
+
+        <div className="mt-6 border-t border-border pt-4">
+          <div className="text-sm font-semibold text-fg">Export</div>
+          <div className="mt-2 flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-4">
+            <label className="flex items-center gap-2 text-sm text-muted">
+              <input
+                type="checkbox"
+                className="accent-indigo-600"
+                checked={includeHistory}
+                onChange={(e) => setIncludeHistory(e.target.checked)}
+              />
+              Include history
+            </label>
+            <label className="flex items-center gap-2 text-sm text-muted">
+              <input
+                type="checkbox"
+                className="accent-indigo-600"
+                checked={includeAttachments}
+                onChange={(e) => setIncludeAttachments(e.target.checked)}
+              />
+              Include attachments
+            </label>
+          </div>
+          <div className="mt-2 text-xs text-muted-2">
+            Export creates a clean zip bundle (can be shared or committed).
           </div>
         </div>
       </div>

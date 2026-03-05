@@ -28,7 +28,7 @@ impl Default for ExportOptions {
   }
 }
 
-#[tauri::command]
+#[tauri::command(rename_all = "snake_case")]
 pub fn export_bundle(project_dir: String, options: ExportOptions) -> Result<String, String> {
   export_bundle_impl(&project_dir, &options)
     .map(|p| p.to_string_lossy().to_string())

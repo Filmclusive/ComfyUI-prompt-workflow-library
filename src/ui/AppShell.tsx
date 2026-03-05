@@ -2,9 +2,11 @@ import { useEffect, useMemo, useState } from "react";
 import { Outlet, NavLink, useNavigate } from "react-router-dom";
 import { clsx } from "clsx";
 import { cmd } from "../lib/tauri";
-import type { AppSettings, Project } from "../types";
+import type { AppSettings, Project, Scene, Shot } from "../types";
 import { useAppState } from "../state/AppState";
 import { ProjectDialog } from "./components/ProjectDialog";
+import { Button } from "./components/Button";
+import { Input } from "./components/Input";
 
 function SideLink({
   to,
@@ -39,6 +41,12 @@ export function AppShell() {
     setWorkspaceScope,
     currentProjectDir,
     setCurrentProjectDir,
+    scenes,
+    setScenes,
+    selectedSceneId,
+    setSelectedSceneId,
+    shotsBySceneId,
+    setShotsBySceneId,
   } = useAppState();
 
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -46,10 +54,34 @@ export function AppShell() {
   const [recentProjects, setRecentProjects] = useState<
     { dir: string; name: string | null }[]
   >([]);
+  const [sceneBusy, setSceneBusy] = useState(false);
+  const [sceneErr, setSceneErr] = useState<string | null>(null);
+  const [newSceneTitle, setNewSceneTitle] = useState("");
 
   useEffect(() => {
     setSettingsErr(null);
   }, [settings]);
+
+  useEffect(() => {
+    if (workspaceScope !== "project" || !currentProjectDir) return;
+    setSceneErr(null);
+    setSceneBusy(true);
+    cmd<Scene[]>("list_scenes", { project_dir: currentProjectDir })
+      .then((sc) => {
+        setScenes(sc);
+        setSelectedSceneId((prev) => {
+          if (prev && sc.some((s) => s.id === prev)) return prev;
+          return sc[0]?.id ?? null;
+        });
+      })
+      .catch((e) => setSceneErr(String(e)))
+      .finally(() => setSceneBusy(false));
+  }, [
+    currentProjectDir,
+    setScenes,
+    setSelectedSceneId,
+    workspaceScope,
+  ]);
 
   useEffect(() => {
     const dirs = settings?.recentProjects ?? [];
@@ -84,6 +116,10 @@ export function AppShell() {
   async function onSelectWorkspace(value: string) {
     if (value === "__global__") {
       setWorkspaceScope("global");
+      setCurrentProjectDir(null);
+      setSelectedSceneId(null);
+      setScenes([]);
+      setShotsBySceneId({});
       return;
     }
     if (!value.trim()) return;
@@ -97,6 +133,40 @@ export function AppShell() {
     } catch (e) {
       setDialogOpen(true);
       setSettingsErr(String(e));
+    }
+  }
+
+  async function createSceneFromSidebar() {
+    if (!currentProjectDir) return;
+    setSceneErr(null);
+    setSceneBusy(true);
+    try {
+      const created = await cmd<Scene>("create_scene", {
+        project_dir: currentProjectDir,
+        title: newSceneTitle.trim() || null,
+      });
+      await cmd<void>("create_shot", {
+        project_dir: currentProjectDir,
+        scene_id: created.id,
+      });
+      const sc = await cmd<Scene[]>("list_scenes", { project_dir: currentProjectDir });
+      setScenes(sc);
+      setSelectedSceneId(created.id);
+      setNewSceneTitle("");
+      const list = await cmd<Shot[]>("list_shots", {
+        project_dir: currentProjectDir,
+        scene_id: created.id,
+        scene_dir: created.dirName,
+      });
+      setShotsBySceneId({
+        ...shotsBySceneId,
+        [created.id]: list,
+      });
+      nav("/project");
+    } catch (e) {
+      setSceneErr(String(e));
+    } finally {
+      setSceneBusy(false);
     }
   }
 
@@ -139,11 +209,91 @@ export function AppShell() {
           </div>
 
           <nav className="mt-6 flex flex-col gap-1">
-            <SideLink to="/project" label="Project" />
-            <SideLink to="/prompts" label="Prompts" />
-            <SideLink to="/workflows" label="Workflows" />
+            {workspaceScope === "project" ? (
+              <>
+                <SideLink to="/project" label="Shots" />
+                <SideLink to="/workflows" label="Workflows" />
+              </>
+            ) : (
+              <>
+                <SideLink to="/prompts" label="Prompts" />
+                <SideLink to="/workflows" label="Workflows" />
+              </>
+            )}
+            <SideLink to="/dictionary" label="Dictionary" />
             <SideLink to="/settings" label="Settings" />
           </nav>
+
+          {workspaceScope === "project" && currentProjectDir && (
+            <div className="mt-6">
+              <div className="flex items-center justify-between gap-2">
+                <div className="text-xs font-medium text-muted-2">Scenes</div>
+                <div className="text-[11px] text-muted-2">
+                  {sceneBusy ? "Loading…" : ""}
+                </div>
+              </div>
+
+              <div className="mt-2 space-y-1">
+                {scenes.map((s) => {
+                  const count = shotsBySceneId[s.id]?.length;
+                  const isActive = s.id === selectedSceneId;
+                  return (
+                    <button
+                      key={s.id}
+                      type="button"
+                      onClick={() => {
+                        setSelectedSceneId(s.id);
+                        nav("/project");
+                      }}
+                      className={clsx(
+                        "w-full text-left rounded-md border px-3 py-2",
+                        isActive
+                          ? "border-accent bg-surface-hover"
+                          : "border-border bg-surface hover:bg-surface-hover",
+                      )}
+                    >
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="text-sm font-medium text-fg">
+                          Scene {String(s.number).padStart(2, "0")}
+                        </div>
+                        {typeof count === "number" && (
+                          <div className="text-xs text-muted-2">
+                            {count}
+                          </div>
+                        )}
+                      </div>
+                      <div className="mt-1 text-sm text-muted">
+                        {s.title || "Untitled"}
+                      </div>
+                    </button>
+                  );
+                })}
+                {scenes.length === 0 && (
+                  <div className="rounded-md border border-border bg-surface px-3 py-2 text-sm text-muted">
+                    No scenes yet.
+                  </div>
+                )}
+              </div>
+
+              <div className="mt-3 space-y-2">
+                <Input
+                  value={newSceneTitle}
+                  onChange={setNewSceneTitle}
+                  placeholder="New scene title"
+                />
+                <Button
+                  onClick={createSceneFromSidebar}
+                  disabled={sceneBusy}
+                  variant="secondary"
+                >
+                  Add scene
+                </Button>
+                {sceneErr && (
+                  <div className="text-xs text-danger-fg">{sceneErr}</div>
+                )}
+              </div>
+            </div>
+          )}
         </div>
       </aside>
 

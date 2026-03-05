@@ -60,7 +60,7 @@ fn guess_kind(file_name: &str) -> AttachmentKind {
   AttachmentKind::Other
 }
 
-#[tauri::command]
+#[tauri::command(rename_all = "snake_case")]
 pub fn import_attachments(
   project_dir: String,
   scene_id: Uuid,
@@ -118,4 +118,3 @@ fn import_attachments_impl(
   write_json_pretty_atomic(&shot_json, &shot)?;
   Ok(shot)
 }
-

@@ -50,7 +50,7 @@ fn find_shot_dir(project_dir: &Path, scene_id: Uuid, shot_id: Uuid) -> AppResult
   Err(AppError::NotFound("Shot not found".to_string()))
 }
 
-#[tauri::command]
+#[tauri::command(rename_all = "snake_case")]
 pub fn read_prompt_text(
   project_dir: String,
   scene_id: Uuid,
@@ -75,7 +75,7 @@ fn read_prompt_text_impl(
   read_text(&path)
 }
 
-#[tauri::command]
+#[tauri::command(rename_all = "snake_case")]
 pub fn write_prompt_text(
   project_dir: String,
   scene_id: Uuid,
@@ -102,4 +102,3 @@ fn write_prompt_text_impl(
   write_text_atomic(&path, text)?;
   Ok(())
 }
-

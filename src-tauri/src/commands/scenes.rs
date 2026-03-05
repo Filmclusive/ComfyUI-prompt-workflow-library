@@ -21,7 +21,7 @@ pub struct SceneWithDir {
   pub dir_name: String,
 }
 
-#[tauri::command]
+#[tauri::command(rename_all = "snake_case")]
 pub fn list_scenes(project_dir: String) -> Result<Vec<SceneWithDir>, String> {
   list_scenes_impl(&project_dir).map_err(|e| e.to_string())
 }
@@ -50,7 +50,7 @@ fn list_scenes_impl(project_dir: &str) -> AppResult<Vec<SceneWithDir>> {
   Ok(out)
 }
 
-#[tauri::command]
+#[tauri::command(rename_all = "snake_case")]
 pub fn create_scene(project_dir: String, title: Option<String>) -> Result<SceneWithDir, String> {
   create_scene_impl(&project_dir, title.as_deref())
     .map_err(|e| e.to_string())

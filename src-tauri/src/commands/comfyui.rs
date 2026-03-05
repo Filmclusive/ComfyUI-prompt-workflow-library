@@ -17,7 +17,7 @@ fn split_command(command: &str) -> AppResult<(String, Vec<String>)> {
   Ok((parts[0].clone(), parts[1..].to_vec()))
 }
 
-#[tauri::command]
+#[tauri::command(rename_all = "snake_case")]
 pub fn launch_comfyui(app: AppHandle, state: tauri::State<ComfyUiProcessState>) -> Result<(), String> {
   launch_comfyui_impl(&app, &state).map_err(|e| e.to_string())
 }
@@ -45,7 +45,7 @@ fn launch_comfyui_impl(app: &AppHandle, state: &ComfyUiProcessState) -> AppResul
   Ok(())
 }
 
-#[tauri::command]
+#[tauri::command(rename_all = "snake_case")]
 pub fn stop_comfyui(state: tauri::State<ComfyUiProcessState>) -> Result<(), String> {
   stop_comfyui_impl(&state).map_err(|e| e.to_string())
 }
@@ -58,13 +58,12 @@ fn stop_comfyui_impl(state: &ComfyUiProcessState) -> AppResult<()> {
   Ok(())
 }
 
-#[tauri::command]
+#[tauri::command(rename_all = "snake_case")]
 pub fn get_settings(app: AppHandle) -> Result<crate::model::AppSettings, String> {
   read_settings(&app).map_err(|e| e.to_string())
 }
 
-#[tauri::command]
+#[tauri::command(rename_all = "snake_case")]
 pub fn set_settings(app: AppHandle, settings: crate::model::AppSettings) -> Result<crate::model::AppSettings, String> {
   write_settings(&app, &settings).map_err(|e| e.to_string())
 }
-

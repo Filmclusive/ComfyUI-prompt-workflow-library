@@ -1,7 +1,6 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { open as openDialog } from "@tauri-apps/api/dialog";
-import { join } from "@tauri-apps/api/path";
+import { open as openDialog, save as saveDialog } from "@tauri-apps/api/dialog";
 import { cmd } from "../../lib/tauri";
 import type { AppSettings } from "../../types";
 import { useAppState } from "../../state/AppState";
@@ -21,8 +20,7 @@ export function ProjectDialog({
 
   const [mode, setMode] = useState<"open" | "create">("create");
   const [projectName, setProjectName] = useState("My Project");
-  const [createParentDir, setCreateParentDir] = useState("");
-  const [createDirPreview, setCreateDirPreview] = useState("");
+  const [createProjectDir, setCreateProjectDir] = useState("");
   const [openProjectDir, setOpenProjectDir] = useState("");
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
@@ -33,28 +31,6 @@ export function ProjectDialog({
     setErr(null);
     setBusy(false);
   }, [open]);
-
-  useEffect(() => {
-    let cancelled = false;
-    const parent = createParentDir.trim();
-    const name = projectName.trim();
-    if (!parent || !name) {
-      setCreateDirPreview("");
-      return;
-    }
-    join(parent, name)
-      .then((p) => {
-        if (cancelled) return;
-        setCreateDirPreview(p);
-      })
-      .catch(() => {
-        if (cancelled) return;
-        setCreateDirPreview("");
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [createParentDir, projectName]);
 
   async function refreshSettings() {
     try {
@@ -88,9 +64,8 @@ export function ProjectDialog({
     setErr(null);
     setBusy(true);
     try {
-      const parent = createParentDir.trim();
       const name = projectName.trim();
-      const dir = await join(parent, name);
+      const dir = createProjectDir.trim();
       const created = await cmd<string>("create_project", {
         name,
         dir,
@@ -107,16 +82,15 @@ export function ProjectDialog({
     }
   }
 
-  async function browseForCreateParentDir() {
+  async function browseForCreateProjectDir() {
     setErr(null);
     try {
-      const selected = await openDialog({
-        directory: true,
-        multiple: false,
-        title: "Choose project location",
+      const selected = await saveDialog({
+        title: "Choose project folder",
+        defaultPath: createProjectDir.trim() || projectName.trim() || undefined,
       });
-      if (!selected || Array.isArray(selected)) return;
-      setCreateParentDir(selected);
+      if (!selected) return;
+      setCreateProjectDir(selected);
     } catch (e) {
       setErr(String(e));
     }
@@ -130,8 +104,9 @@ export function ProjectDialog({
         multiple: false,
         title: "Select an existing project folder",
       });
-      if (!selected || Array.isArray(selected)) return;
-      setOpenProjectDir(selected);
+      const dir = Array.isArray(selected) ? selected[0] : selected;
+      if (!dir) return;
+      setOpenProjectDir(dir);
     } catch (e) {
       setErr(String(e));
     }
@@ -168,34 +143,32 @@ export function ProjectDialog({
               </div>
             </div>
 
-            <div>
-              <div className="text-xs font-medium text-muted-2">Location</div>
-              <div className="mt-1 flex items-center gap-2">
-                <div className="flex-1 min-w-0">
-                  <Input
-                    value={createParentDir}
-                    onChange={setCreateParentDir}
-                    placeholder="/path/to/folder"
-                  />
-                </div>
-                <Button
-                  variant="secondary"
-                  onClick={browseForCreateParentDir}
-                  disabled={busy}
-                >
-                  Browse…
-                </Button>
-              </div>
-              <div className="mt-1 text-xs text-muted-2">
-                Choose where the project folder should be created (external drives are supported).
-              </div>
-              <div className="mt-2 text-xs text-muted-2">
-                Will create:{" "}
-                <span className="text-muted">
-                  {createDirPreview ? createDirPreview : "—"}
-                </span>
-              </div>
-            </div>
+	            <div>
+	              <div className="text-xs font-medium text-muted-2">
+	                Project folder
+	              </div>
+	              <div className="mt-1 flex items-center gap-2">
+	                <div className="flex-1 min-w-0">
+	                  <Input
+	                    value={createProjectDir}
+	                    onChange={setCreateProjectDir}
+	                    placeholder="/path/to/MyProject"
+	                  />
+	                </div>
+	                <Button
+	                  variant="secondary"
+	                  onClick={browseForCreateProjectDir}
+	                  disabled={busy}
+	                >
+	                  Browse…
+	                </Button>
+	              </div>
+	              <div className="mt-1 text-xs text-muted-2">
+	                Choose a location and enter a new folder name in the dialog.
+	                The app creates the folder and writes files inside it.
+	                External drives are supported.
+	              </div>
+	            </div>
           </>
         ) : (
           <div>
@@ -231,17 +204,16 @@ export function ProjectDialog({
               Open
             </Button>
           ) : (
-            <Button
-              onClick={createProject}
-              disabled={
-                busy ||
-                !createParentDir.trim() ||
-                !projectName.trim() ||
-                !createDirPreview
-              }
-            >
-              Create
-            </Button>
+	            <Button
+	              onClick={createProject}
+	              disabled={
+	                busy ||
+	                !projectName.trim() ||
+	                !createProjectDir.trim()
+	              }
+	            >
+	              Create
+	            </Button>
           )}
         </div>
       </div>

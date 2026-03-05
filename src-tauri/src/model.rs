@@ -133,6 +133,33 @@ pub enum PromptEntryKind {
   NoteTemplate,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum PromptEntryFormat {
+  Simple,
+  #[serde(alias = "dual")]
+  Advanced,
+}
+
+impl Default for PromptEntryFormat {
+  fn default() -> Self {
+    Self::Simple
+  }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+#[serde(rename_all = "camelCase")]
+pub struct PromptParams {
+  pub width: Option<u32>,
+  pub height: Option<u32>,
+  pub seed: Option<u64>,
+  pub steps: Option<u32>,
+  pub cfg: Option<f32>,
+  pub sampler: Option<String>,
+  pub model_name: Option<String>,
+  pub vae: Option<String>,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct PromptEntry {
@@ -141,6 +168,14 @@ pub struct PromptEntry {
   pub parent_id: Option<Uuid>,
   pub title: String,
   pub body: String,
+  #[serde(default)]
+  pub format: PromptEntryFormat,
+  #[serde(default, skip_serializing_if = "Option::is_none")]
+  pub positive: Option<String>,
+  #[serde(default, skip_serializing_if = "Option::is_none")]
+  pub negative: Option<String>,
+  #[serde(default, skip_serializing_if = "Option::is_none")]
+  pub params: Option<PromptParams>,
   pub tags: Vec<String>,
   pub kind: PromptEntryKind,
   pub created_at: IsoDateTime,
@@ -160,6 +195,8 @@ pub struct WorkflowMeta {
   pub variables: Vec<String>,
   pub notes: String,
   pub tags: Vec<String>,
+  #[serde(default)]
+  pub models: Vec<String>,
   pub updated_at: IsoDateTime,
   pub created_at: IsoDateTime,
 }
@@ -179,6 +216,7 @@ impl Default for WorkflowMeta {
       ],
       notes: String::new(),
       tags: Vec::new(),
+      models: Vec::new(),
       updated_at: now,
       created_at: now,
     }

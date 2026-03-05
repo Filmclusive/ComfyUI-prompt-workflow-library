@@ -1,6 +1,7 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 mod commands;
+mod default_workflows;
 mod error;
 mod model;
 mod paths;
@@ -18,7 +19,9 @@ fn ensure_app_dirs(app: &tauri::AppHandle) -> Result<(), String> {
     .ok_or_else(|| "App data dir not available".to_string())?;
   std::fs::create_dir_all(app_data.join("library").join("global-prompts"))
     .map_err(|e| e.to_string())?;
-  std::fs::create_dir_all(app_data.join("workflows").join("global")).map_err(|e| e.to_string())?;
+  let global_workflows_dir = app_data.join("workflows").join("global");
+  std::fs::create_dir_all(&global_workflows_dir).map_err(|e| e.to_string())?;
+  crate::default_workflows::install_default_workflows(&global_workflows_dir).map_err(|e| e.to_string())?;
   Ok(())
 }
 
@@ -51,6 +54,7 @@ fn main() {
       // Prompt library
       commands::prompts::list_prompt_entries,
       commands::prompts::create_prompt_entry,
+      commands::prompts::update_prompt_entry,
       commands::prompts::delete_prompt_entry,
       // History
       commands::history::create_revision,

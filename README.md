@@ -45,6 +45,13 @@ Global (app-wide) prompts and workflows are stored in your OS app data folder un
 - `library/global-prompts/`
 - `workflows/global/`
 
+## Default (approved) workflows
+
+To ship “Filmclusive approved” workflows with the app, add them to:
+- `src-tauri/default_workflows/` (edit `manifest.json`, drop in workflow `.json` files)
+
+On app startup, any defaults missing from your global workflows folder are installed into `workflows/global/`.
+
 ## Dev setup
 
 Prereqs:
@@ -71,4 +78,4 @@ Run the desktop app:
 
 - Export creates a clean `.zip` bundle (optionally includes history and attachments).
 - ComfyUI integration is intentionally “external”: configure a launch command and working directory, then open the web UI URL.
-
+- Tauri invoke command args are `snake_case` (e.g. `project_dir`, `scene_id`, `shot_id`).

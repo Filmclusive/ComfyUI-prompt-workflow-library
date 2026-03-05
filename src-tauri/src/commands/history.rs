@@ -57,7 +57,7 @@ fn find_shot_dir(project_dir: &Path, scene_id: Uuid, shot_id: Uuid) -> AppResult
   Err(AppError::NotFound("Shot not found".to_string()))
 }
 
-#[tauri::command]
+#[tauri::command(rename_all = "snake_case")]
 pub fn create_revision(
   project_dir: String,
   scene_id: Uuid,
@@ -96,7 +96,7 @@ fn create_revision_impl(project_dir: &str, scene_id: Uuid, shot_id: Uuid, messag
   Ok(())
 }
 
-#[tauri::command]
+#[tauri::command(rename_all = "snake_case")]
 pub fn list_revisions(project_dir: String, scene_id: Uuid, shot_id: Uuid) -> Result<Vec<RevisionSummary>, String> {
   list_revisions_impl(&project_dir, scene_id, shot_id).map_err(|e| e.to_string())
 }
@@ -131,7 +131,7 @@ fn list_revisions_impl(project_dir: &str, scene_id: Uuid, shot_id: Uuid) -> AppR
   Ok(out)
 }
 
-#[tauri::command]
+#[tauri::command(rename_all = "snake_case")]
 pub fn restore_revision(
   project_dir: String,
   scene_id: Uuid,
@@ -166,7 +166,7 @@ pub struct DiffResult {
   pub shot_json: String,
 }
 
-#[tauri::command]
+#[tauri::command(rename_all = "snake_case")]
 pub fn diff_revision(
   project_dir: String,
   scene_id: Uuid,
@@ -207,4 +207,3 @@ fn diff_revision_impl(project_dir: &str, scene_id: Uuid, shot_id: Uuid, revision
     shot_json: shot_diff,
   })
 }
-

@@ -1,11 +1,12 @@
 import { useEffect, useMemo, useState } from "react";
-import { useSearchParams } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { writeText } from "@tauri-apps/api/clipboard";
 import { open } from "@tauri-apps/api/shell";
 import { open as openDialog } from "@tauri-apps/api/dialog";
 import { join } from "@tauri-apps/api/path";
 import { cmd } from "../../lib/tauri";
 import type { AttachmentRole, Shot, WorkflowSummary } from "../../types";
+import { useAppState } from "../../state/AppState";
 import { Button } from "../components/Button";
 import { Input } from "../components/Input";
 import { Textarea } from "../components/Textarea";
@@ -24,10 +25,14 @@ type DiffResult = {
 };
 
 export function ShotPage() {
+  const nav = useNavigate();
   const [sp] = useSearchParams();
   const projectDir = sp.get("projectDir");
   const sceneId = sp.get("sceneId");
   const shotId = sp.get("shotId");
+
+  const { setWorkspaceScope, setCurrentProjectDir, setSelectedSceneId } =
+    useAppState();
 
   const [shot, setShot] = useState<Shot | null>(null);
   const [positive, setPositive] = useState("");
@@ -50,6 +55,13 @@ export function ShotPage() {
     if (!projectDir || !sceneId || !shotId) return null;
     return { project_dir: projectDir, scene_id: sceneId, shot_id: shotId };
   }, [projectDir, sceneId, shotId]);
+
+  useEffect(() => {
+    if (!projectDir) return;
+    setWorkspaceScope("project");
+    setCurrentProjectDir(projectDir);
+    setSelectedSceneId(sceneId);
+  }, [projectDir, sceneId, setCurrentProjectDir, setSelectedSceneId, setWorkspaceScope]);
 
   useEffect(() => {
     if (!shotDirArgs) return;
@@ -289,8 +301,17 @@ export function ShotPage() {
 
       <div className="flex items-center justify-between gap-3">
         <div>
-          <div className="text-lg font-semibold text-fg">
-            Shot {shot ? String(shot.number).padStart(3, "0") : ""}
+          <div className="flex items-center gap-2">
+            <Button
+              variant="secondary"
+              onClick={() => nav("/project")}
+              disabled={busy}
+            >
+              Back to shots
+            </Button>
+            <div className="text-lg font-semibold text-fg">
+              Shot {shot ? String(shot.number).padStart(3, "0") : ""}
+            </div>
           </div>
           <div className="mt-1 text-sm text-muted">
             {busy ? "Working…" : ""}
@@ -392,7 +413,7 @@ export function ShotPage() {
             </div>
             <div className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-3">
               <div>
-                <div className="text-xs font-medium text-slate-300">Width</div>
+                <div className="text-xs font-medium text-muted-2">Width</div>
                 <div className="mt-1">
                   <Input
                     value={String(shot?.params.width ?? "")}
@@ -414,7 +435,7 @@ export function ShotPage() {
                 </div>
               </div>
               <div>
-                <div className="text-xs font-medium text-slate-300">Height</div>
+                <div className="text-xs font-medium text-muted-2">Height</div>
                 <div className="mt-1">
                   <Input
                     value={String(shot?.params.height ?? "")}
@@ -436,7 +457,7 @@ export function ShotPage() {
                 </div>
               </div>
               <div>
-                <div className="text-xs font-medium text-slate-300">Seed</div>
+                <div className="text-xs font-medium text-muted-2">Seed</div>
                 <div className="mt-1">
                   <Input
                     value={String(shot?.params.seed ?? "")}
@@ -458,7 +479,7 @@ export function ShotPage() {
                 </div>
               </div>
               <div>
-                <div className="text-xs font-medium text-slate-300">Steps</div>
+                <div className="text-xs font-medium text-muted-2">Steps</div>
                 <div className="mt-1">
                   <Input
                     value={String(shot?.params.steps ?? "")}
@@ -480,7 +501,7 @@ export function ShotPage() {
                 </div>
               </div>
               <div>
-                <div className="text-xs font-medium text-slate-300">CFG</div>
+                <div className="text-xs font-medium text-muted-2">CFG</div>
                 <div className="mt-1">
                   <Input
                     value={String(shot?.params.cfg ?? "")}
@@ -502,7 +523,7 @@ export function ShotPage() {
                 </div>
               </div>
               <div>
-                <div className="text-xs font-medium text-slate-300">
+                <div className="text-xs font-medium text-muted-2">
                   Sampler
                 </div>
                 <div className="mt-1">
@@ -525,16 +546,16 @@ export function ShotPage() {
             </div>
           </div>
 
-          <div className="mt-4 border-t border-slate-800 pt-4">
+          <div className="mt-4 border-t border-border pt-4">
             <div className="flex items-center justify-between gap-3">
-              <div className="text-sm font-semibold text-slate-100">
+              <div className="text-sm font-semibold text-fg">
                 Attachments
               </div>
               <div className="flex items-center gap-2">
                 <select
                   value={attachRole}
                   onChange={(e) => setAttachRole(e.target.value as AttachmentRole)}
-                  className="rounded-md border border-slate-800 bg-slate-950 px-3 py-2 text-sm text-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-700"
+                  className="rounded-md border border-border bg-surface px-3 py-2 text-sm text-fg focus:outline-none focus:ring-2 focus:ring-accent-ring"
                 >
                   <option value="first_frame">First frame</option>
                   <option value="last_frame">Last frame</option>
@@ -551,10 +572,10 @@ export function ShotPage() {
               {(shot?.attachments ?? []).map((a) => (
                 <div
                   key={a.id}
-                  className="rounded-md border border-slate-800 bg-slate-950 px-3 py-2"
+                  className="rounded-md border border-border bg-surface px-3 py-2"
                 >
                   <div className="flex items-center justify-between gap-3">
-                    <div className="truncate text-sm font-medium text-slate-100">
+                    <div className="truncate text-sm font-medium text-fg">
                       {a.fileName}
                     </div>
                     <Button
@@ -567,22 +588,22 @@ export function ShotPage() {
                       Open
                     </Button>
                   </div>
-                  <div className="mt-1 text-xs text-slate-400">
+                  <div className="mt-1 text-xs text-muted-2">
                     {a.role.replace("_", " ")} • {a.kind}
                   </div>
                 </div>
               ))}
               {(shot?.attachments ?? []).length === 0 && (
-                <div className="text-sm text-slate-400">
+                <div className="text-sm text-muted">
                   No attachments yet.
                 </div>
               )}
             </div>
           </div>
 
-          <div className="mt-4 border-t border-slate-800 pt-4">
+          <div className="mt-4 border-t border-border pt-4">
             <div className="flex items-center justify-between gap-3">
-              <div className="text-sm font-semibold text-slate-100">
+              <div className="text-sm font-semibold text-fg">
                 Workflow
               </div>
               <Button variant="secondary" onClick={applyWorkflow} disabled={busy}>
@@ -591,7 +612,7 @@ export function ShotPage() {
             </div>
             <div className="mt-3 grid grid-cols-1 gap-3 md:grid-cols-2">
               <div>
-                <div className="text-xs font-medium text-slate-300">Scope</div>
+                <div className="text-xs font-medium text-muted-2">Scope</div>
                 <div className="mt-1">
                   <select
                     value={workflowScope}
@@ -608,18 +629,18 @@ export function ShotPage() {
                           : s,
                       );
                     }}
-                    className="w-full rounded-md border border-slate-800 bg-slate-950 px-3 py-2 text-sm text-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-700"
+                    className="w-full rounded-md border border-border bg-surface px-3 py-2 text-sm text-fg focus:outline-none focus:ring-2 focus:ring-accent-ring"
                   >
                     <option value="global">Global</option>
                     <option value="project">Project</option>
                   </select>
                 </div>
-                <div className="mt-1 text-xs text-slate-500">
+                <div className="mt-1 text-xs text-muted-2">
                   Project workflows are stored in the project folder.
                 </div>
               </div>
               <div>
-                <div className="text-xs font-medium text-slate-300">
+                <div className="text-xs font-medium text-muted-2">
                   Workflow
                 </div>
                 <div className="mt-1">
@@ -639,7 +660,7 @@ export function ShotPage() {
                           : s,
                       );
                     }}
-                    className="w-full rounded-md border border-slate-800 bg-slate-950 px-3 py-2 text-sm text-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-700"
+                    className="w-full rounded-md border border-border bg-surface px-3 py-2 text-sm text-fg focus:outline-none focus:ring-2 focus:ring-accent-ring"
                   >
                     <option value="">Select a workflow</option>
                     {workflows.map((w) => (
@@ -652,8 +673,8 @@ export function ShotPage() {
               </div>
             </div>
             {variantPath && (
-              <div className="mt-3 rounded-md border border-slate-800 bg-slate-950 px-3 py-2 text-sm text-slate-200">
-                <div className="text-xs font-medium text-slate-300">
+              <div className="mt-3 rounded-md border border-border bg-surface px-3 py-2 text-sm text-muted">
+                <div className="text-xs font-medium text-muted-2">
                   Variant saved
                 </div>
                 <div className="mt-1 break-all">{variantPath}</div>
@@ -670,10 +691,10 @@ export function ShotPage() {
           </div>
         </div>
 
-        <div className="rounded-lg border border-slate-800 bg-slate-950 p-4">
-          <div className="text-sm font-semibold text-slate-100">History</div>
+        <div className="rounded-lg border border-border bg-surface p-4">
+          <div className="text-sm font-semibold text-fg">History</div>
           <div className="mt-3 space-y-2">
-            <div className="text-xs font-medium text-slate-300">
+            <div className="text-xs font-medium text-muted-2">
               Save revision message
             </div>
             <Input value={message} onChange={setMessage} placeholder="Optional message" />
@@ -686,12 +707,12 @@ export function ShotPage() {
             {revisions.map((r) => (
               <div
                 key={r.id}
-                className="rounded-md border border-slate-800 bg-slate-950 px-3 py-2"
+                className="rounded-md border border-border bg-surface px-3 py-2"
               >
-                <div className="text-sm font-medium text-slate-100">
+                <div className="text-sm font-medium text-fg">
                   {new Date(r.createdAt).toLocaleString()}
                 </div>
-                <div className="mt-1 text-sm text-slate-300">
+                <div className="mt-1 text-sm text-muted">
                   {r.message ?? "No message"}
                 </div>
                 <div className="mt-2 flex items-center gap-2">
@@ -713,7 +734,7 @@ export function ShotPage() {
               </div>
             ))}
             {revisions.length === 0 && (
-              <div className="text-sm text-slate-400">No revisions.</div>
+              <div className="text-sm text-muted">No revisions.</div>
             )}
           </div>
         </div>

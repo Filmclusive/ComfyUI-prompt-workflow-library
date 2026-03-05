@@ -5,7 +5,7 @@ use uuid::Uuid;
 
 use crate::{
   error::{AppError, AppResult},
-  model::{PromptEntry, PromptEntryKind, PromptScope},
+  model::{PromptEntry, PromptEntryFormat, PromptEntryKind, PromptParams, PromptScope},
   storage::{read_json, write_json_pretty_atomic},
 };
 
@@ -32,7 +32,7 @@ fn entry_path(root: &Path, id: Uuid) -> PathBuf {
   root.join(format!("entry_{}.json", id))
 }
 
-#[tauri::command]
+#[tauri::command(rename_all = "snake_case")]
 pub fn list_prompt_entries(
   app: tauri::AppHandle,
   scope: PromptScope,
@@ -70,7 +70,7 @@ fn list_prompt_entries_impl(
   Ok(out)
 }
 
-#[tauri::command]
+#[tauri::command(rename_all = "snake_case")]
 pub fn create_prompt_entry(
   app: tauri::AppHandle,
   scope: PromptScope,
@@ -78,10 +78,27 @@ pub fn create_prompt_entry(
   parent_id: Option<Uuid>,
   title: String,
   body: String,
+  format: Option<PromptEntryFormat>,
+  positive: Option<String>,
+  negative: Option<String>,
+  params: Option<PromptParams>,
   tags: Vec<String>,
   kind: PromptEntryKind,
 ) -> Result<PromptEntry, String> {
-  create_prompt_entry_impl(Some(&app), scope, parent_dir.as_deref(), parent_id, &title, &body, tags, kind)
+  create_prompt_entry_impl(
+    Some(&app),
+    scope,
+    parent_dir.as_deref(),
+    parent_id,
+    &title,
+    &body,
+    format.unwrap_or_default(),
+    positive.as_deref(),
+    negative.as_deref(),
+    params,
+    tags,
+    kind,
+  )
     .map_err(|e| e.to_string())
 }
 
@@ -92,6 +109,10 @@ fn create_prompt_entry_impl(
   parent_id: Option<Uuid>,
   title: &str,
   body: &str,
+  format: PromptEntryFormat,
+  positive: Option<&str>,
+  negative: Option<&str>,
+  params: Option<PromptParams>,
   tags: Vec<String>,
   kind: PromptEntryKind,
 ) -> AppResult<PromptEntry> {
@@ -108,6 +129,10 @@ fn create_prompt_entry_impl(
     parent_id,
     title: title.to_string(),
     body: body.to_string(),
+    format,
+    positive: positive.map(|s| s.to_string()).filter(|s| !s.trim().is_empty()),
+    negative: negative.map(|s| s.to_string()).filter(|s| !s.trim().is_empty()),
+    params,
     tags,
     kind,
     created_at: now,
@@ -117,7 +142,89 @@ fn create_prompt_entry_impl(
   Ok(entry)
 }
 
-#[tauri::command]
+#[tauri::command(rename_all = "snake_case")]
+pub fn update_prompt_entry(
+  app: tauri::AppHandle,
+  scope: PromptScope,
+  parent_dir: Option<String>,
+  id: Uuid,
+  title: String,
+  body: String,
+  format: PromptEntryFormat,
+  positive: Option<String>,
+  negative: Option<String>,
+  params: Option<PromptParams>,
+  tags: Vec<String>,
+  kind: PromptEntryKind,
+) -> Result<PromptEntry, String> {
+  update_prompt_entry_impl(
+    Some(&app),
+    scope,
+    parent_dir.as_deref(),
+    id,
+    &title,
+    &body,
+    format,
+    positive.as_deref(),
+    negative.as_deref(),
+    params,
+    tags,
+    kind,
+  )
+  .map_err(|e| e.to_string())
+}
+
+fn update_prompt_entry_impl(
+  app: Option<&tauri::AppHandle>,
+  scope: PromptScope,
+  parent_dir: Option<&str>,
+  id: Uuid,
+  title: &str,
+  body: &str,
+  format: PromptEntryFormat,
+  positive: Option<&str>,
+  negative: Option<&str>,
+  params: Option<PromptParams>,
+  tags: Vec<String>,
+  kind: PromptEntryKind,
+) -> AppResult<PromptEntry> {
+  if title.trim().is_empty() {
+    return Err(AppError::InvalidInput("Title is required".to_string()));
+  }
+  let root = prompt_root_dir(app, &scope, parent_dir)?;
+  let p = entry_path(&root, id);
+  if !p.exists() {
+    return Err(AppError::NotFound("Prompt entry not found".to_string()));
+  }
+  let existing: PromptEntry = read_json(&p)?;
+  if existing.scope != scope {
+    return Err(AppError::InvalidInput(
+      "Prompt entry scope mismatch".to_string(),
+    ));
+  }
+
+  let now = Utc::now();
+  let updated = PromptEntry {
+    id: existing.id,
+    scope: existing.scope,
+    parent_id: existing.parent_id,
+    title: title.to_string(),
+    body: body.to_string(),
+    format,
+    positive: positive.map(|s| s.to_string()).filter(|s| !s.trim().is_empty()),
+    negative: negative.map(|s| s.to_string()).filter(|s| !s.trim().is_empty()),
+    params,
+    tags,
+    kind,
+    created_at: existing.created_at,
+    updated_at: now,
+  };
+
+  write_json_pretty_atomic(&p, &updated)?;
+  Ok(updated)
+}
+
+#[tauri::command(rename_all = "snake_case")]
 pub fn delete_prompt_entry(
   app: tauri::AppHandle,
   scope: PromptScope,
@@ -141,4 +248,3 @@ fn delete_prompt_entry_impl(
   std::fs::remove_file(p)?;
   Ok(())
 }
-

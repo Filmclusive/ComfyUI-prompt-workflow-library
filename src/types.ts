@@ -86,12 +86,29 @@ export type PromptEntryKind =
   | "both"
   | "noteTemplate";
 
+export type PromptEntryFormat = "simple" | "advanced" | "dual";
+
+export type PromptParams = {
+  width?: number;
+  height?: number;
+  seed?: number;
+  steps?: number;
+  cfg?: number;
+  sampler?: string;
+  modelName?: string;
+  vae?: string;
+};
+
 export type PromptEntry = {
   id: string;
   scope: PromptScope;
   parentId: string | null;
   title: string;
   body: string;
+  format?: PromptEntryFormat;
+  positive?: string | null;
+  negative?: string | null;
+  params?: PromptParams | null;
   tags: string[];
   kind: PromptEntryKind;
   createdAt: IsoDateTime;

@@ -12,21 +12,25 @@ import { applyThemeSetting } from "../lib/theme";
 
 type AppState = {
   settings: AppSettings | null;
-  setSettings: (s: AppSettings | null) => void;
+  setSettings: React.Dispatch<React.SetStateAction<AppSettings | null>>;
   workspaceScope: "global" | "project";
-  setWorkspaceScope: (s: "global" | "project") => void;
+  setWorkspaceScope: React.Dispatch<React.SetStateAction<"global" | "project">>;
   currentProjectDir: string | null;
-  setCurrentProjectDir: (d: string | null) => void;
+  setCurrentProjectDir: React.Dispatch<React.SetStateAction<string | null>>;
   project: Project | null;
-  setProject: (p: Project | null) => void;
+  setProject: React.Dispatch<React.SetStateAction<Project | null>>;
   scenes: Scene[];
-  setScenes: (s: Scene[]) => void;
+  setScenes: React.Dispatch<React.SetStateAction<Scene[]>>;
+  selectedSceneId: string | null;
+  setSelectedSceneId: React.Dispatch<React.SetStateAction<string | null>>;
   shotsBySceneId: Record<string, Shot[]>;
-  setShotsBySceneId: (s: Record<string, Shot[]>) => void;
+  setShotsBySceneId: React.Dispatch<
+    React.SetStateAction<Record<string, Shot[]>>
+  >;
   workflows: WorkflowSummary[];
-  setWorkflows: (w: WorkflowSummary[]) => void;
+  setWorkflows: React.Dispatch<React.SetStateAction<WorkflowSummary[]>>;
   prompts: PromptEntry[];
-  setPrompts: (p: PromptEntry[]) => void;
+  setPrompts: React.Dispatch<React.SetStateAction<PromptEntry[]>>;
 };
 
 const Ctx = createContext<AppState | null>(null);
@@ -41,6 +45,7 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
   );
   const [project, setProject] = useState<Project | null>(null);
   const [scenes, setScenes] = useState<Scene[]>([]);
+  const [selectedSceneId, setSelectedSceneId] = useState<string | null>(null);
   const [shotsBySceneId, setShotsBySceneId] = useState<
     Record<string, Shot[]>
   >({});
@@ -69,6 +74,8 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
       setProject,
       scenes,
       setScenes,
+      selectedSceneId,
+      setSelectedSceneId,
       shotsBySceneId,
       setShotsBySceneId,
       workflows,
@@ -82,6 +89,7 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
       currentProjectDir,
       project,
       scenes,
+      selectedSceneId,
       shotsBySceneId,
       workflows,
       prompts,

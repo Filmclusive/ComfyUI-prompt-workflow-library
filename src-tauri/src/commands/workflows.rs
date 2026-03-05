@@ -36,7 +36,7 @@ fn workflows_root_dir(app: Option<&tauri::AppHandle>, scope: &WorkflowScope, pro
   }
 }
 
-#[tauri::command]
+#[tauri::command(rename_all = "snake_case")]
 pub fn list_workflows(app: tauri::AppHandle, scope: WorkflowScope, project_dir: Option<String>) -> Result<Vec<WorkflowSummary>, String> {
   list_workflows_impl(Some(&app), scope, project_dir.as_deref()).map_err(|e| e.to_string())
 }
@@ -86,7 +86,7 @@ fn parse_workflow_id(dir_name: &str) -> AppResult<Uuid> {
   Ok(Uuid::parse_str(id).map_err(|_| AppError::InvalidInput("Invalid workflow id".to_string()))?)
 }
 
-#[tauri::command]
+#[tauri::command(rename_all = "snake_case")]
 pub fn import_workflow(
   app: tauri::AppHandle,
   scope: WorkflowScope,
@@ -119,7 +119,7 @@ fn import_workflow_impl(
   Ok(())
 }
 
-#[tauri::command]
+#[tauri::command(rename_all = "snake_case")]
 pub fn apply_workflow_template(
   app: tauri::AppHandle,
   project_dir: String,
@@ -133,7 +133,7 @@ pub fn apply_workflow_template(
     .map_err(|e| e.to_string())
 }
 
-#[tauri::command]
+#[tauri::command(rename_all = "snake_case")]
 pub fn read_workflow_meta(
   app: tauri::AppHandle,
   scope: WorkflowScope,
@@ -158,7 +158,7 @@ fn read_workflow_meta_impl(
   read_json(&p)
 }
 
-#[tauri::command]
+#[tauri::command(rename_all = "snake_case")]
 pub fn write_workflow_meta(
   app: tauri::AppHandle,
   scope: WorkflowScope,
