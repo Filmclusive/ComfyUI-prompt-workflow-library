@@ -1,20 +1,26 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { cmd } from "../../lib/tauri";
 import type { WorkflowSummary } from "../../types";
 import { Button } from "../components/Button";
 import { Input } from "../components/Input";
+import { Modal } from "../components/Modal";
 import { useAppState } from "../../state/AppState";
 import { open } from "@tauri-apps/api/dialog";
 import { appWindow } from "@tauri-apps/api/window";
+import { writeText } from "@tauri-apps/api/clipboard";
 
 export function WorkflowManagerPage() {
-  const { currentProjectDir, workspaceScope } = useAppState();
+  const { currentProjectDir, workspaceScope, settings } = useAppState();
   const [items, setItems] = useState<WorkflowSummary[]>([]);
   const [title, setTitle] = useState("New workflow");
   const [jsonPath, setJsonPath] = useState("");
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   const [dropActive, setDropActive] = useState(false);
+  const [selected, setSelected] = useState<WorkflowSummary | null>(null);
+  const [actionBusy, setActionBusy] = useState(false);
+  const [actionErr, setActionErr] = useState<string | null>(null);
+  const [actionNotice, setActionNotice] = useState<ReactNode | null>(null);
 
   const resolvedProjectDir = useMemo(() => {
     if (workspaceScope !== "project") return null;
@@ -140,6 +146,10 @@ export function WorkflowManagerPage() {
     [items],
   );
 
+  const comfyUiConfigured = Boolean(
+    settings?.comfyui.appPath?.trim(),
+  );
+
   function modelsFromTags(tags: string[]) {
     const models = tags
       .filter((t) => t.startsWith("model:"))
@@ -148,8 +158,93 @@ export function WorkflowManagerPage() {
     return models.length ? models.join(", ") : null;
   }
 
+  async function copyWorkflowJson(w: WorkflowSummary) {
+    setActionBusy(true);
+    setActionErr(null);
+    setActionNotice(null);
+    try {
+      const projectDir = scope === "project" ? resolvedProjectDir : null;
+      const json = await cmd<string>("get_workflow_json", {
+        scope,
+        project_dir: projectDir,
+        workflow_id: w.id,
+      });
+      await writeText(json);
+      setActionNotice("Copied workflow JSON to clipboard.");
+    } catch (e) {
+      setActionErr(String(e));
+    } finally {
+      setActionBusy(false);
+    }
+  }
+
+  async function openInComfyUi(w: WorkflowSummary) {
+    const projectDir = scope === "project" ? resolvedProjectDir : null;
+    setActionBusy(true);
+    setActionErr(null);
+    setActionNotice(null);
+    try {
+      const json = await cmd<string>("get_workflow_json", {
+        scope,
+        project_dir: projectDir,
+        workflow_id: w.id,
+      });
+      await writeText(json);
+
+      await cmd<void>("open_workflow_in_comfyui", {
+        scope,
+        project_dir: projectDir,
+        workflow_id: w.id,
+      });
+
+      setActionNotice(
+        <div className="space-y-2 text-sm text-fg">
+          <div className="font-medium">Next steps in ComfyUI</div>
+          <ol className="list-decimal pl-5 text-sm text-fg">
+            <li>Create a new workflow (clear the canvas).</li>
+            <li>Click the canvas, then paste (Ctrl+V / Cmd+V).</li>
+            <li>
+              If paste does not work, use Open Workflow (Ctrl+O / Cmd+O) and
+              select the JSON file (use “Reveal workflow JSON” here to find it).
+            </li>
+          </ol>
+          <div className="text-xs text-muted-2">
+            The workflow JSON is copied to your clipboard.
+          </div>
+        </div>,
+      );
+    } catch (e) {
+      setActionErr(String(e));
+    } finally {
+      setActionBusy(false);
+    }
+  }
+
+  async function revealWorkflowJson(w: WorkflowSummary) {
+    const projectDir = scope === "project" ? resolvedProjectDir : null;
+    setActionBusy(true);
+    setActionErr(null);
+    setActionNotice(null);
+    try {
+      await cmd<void>("reveal_workflow_json", {
+        scope,
+        project_dir: projectDir,
+        workflow_id: w.id,
+      });
+      setActionNotice(
+        <div className="text-sm text-fg">
+          Revealed the workflow JSON file.
+        </div>,
+      );
+    } catch (e) {
+      setActionErr(String(e));
+    } finally {
+      setActionBusy(false);
+    }
+  }
+
   return (
-    <div className="p-4 max-w-5xl">
+    <div className="h-[calc(100vh-0px)] overflow-hidden p-4 max-w-5xl flex flex-col">
       <div className="text-lg font-semibold text-fg">Workflows</div>
       <div className="mt-2 text-sm text-muted">
         Import ComfyUI workflow JSON files and add metadata for variable injection.
@@ -176,7 +271,7 @@ export function WorkflowManagerPage() {
         </div>
       )}
 
-      <div className="mt-6 grid grid-cols-1 gap-4 md:grid-cols-2">
+      <div className="mt-6 flex-1 min-h-0 grid grid-cols-1 gap-4 md:grid-cols-2">
         <div className="rounded-lg border border-border bg-surface p-4">
           <div className="text-sm font-semibold text-fg">
             Import and save
@@ -230,9 +325,9 @@ export function WorkflowManagerPage() {
           </div>
         </div>
 
-        <div className="rounded-lg border border-border bg-surface p-4">
+        <div className="rounded-lg border border-border bg-surface p-4 flex flex-col min-h-0">
           <div className="text-sm font-semibold text-fg">Saved</div>
-          <div className="mt-3 space-y-2">
+          <div className="mt-3 flex-1 min-h-0 overflow-auto pr-1 space-y-2">
             {approved.length > 0 && (
               <div className="pt-1">
                 <div className="text-xs font-semibold text-fg">
@@ -240,9 +335,15 @@ export function WorkflowManagerPage() {
                 </div>
                 <div className="mt-2 space-y-2">
                   {approved.map((w) => (
-                    <div
+                    <button
+                      type="button"
                       key={w.id}
-                      className="rounded-md border border-border bg-surface px-3 py-2"
+                      className="w-full rounded-md border border-border bg-surface px-3 py-2 text-left hover:bg-surface-hover focus:outline-none focus:ring-2 focus:ring-accent-ring"
+                      onClick={() => {
+                        setSelected(w);
+                        setActionErr(null);
+                        setActionNotice(null);
+                      }}
                     >
                       <div className="text-sm font-medium text-fg">
                         {w.title}
@@ -258,7 +359,7 @@ export function WorkflowManagerPage() {
                       <div className="mt-1 text-xs text-muted-2">
                         {w.tags.length ? w.tags.join(", ") : "No tags"}
                       </div>
-                    </div>
+                    </button>
                   ))}
                 </div>
               </div>
@@ -270,9 +371,15 @@ export function WorkflowManagerPage() {
                 </div>
                 <div className="mt-2 space-y-2">
                   {custom.map((w) => (
-                    <div
+                    <button
+                      type="button"
                       key={w.id}
-                      className="rounded-md border border-border bg-surface px-3 py-2"
+                      className="w-full rounded-md border border-border bg-surface px-3 py-2 text-left hover:bg-surface-hover focus:outline-none focus:ring-2 focus:ring-accent-ring"
+                      onClick={() => {
+                        setSelected(w);
+                        setActionErr(null);
+                        setActionNotice(null);
+                      }}
                     >
                       <div className="text-sm font-medium text-fg">
                         {w.title}
@@ -288,7 +395,7 @@ export function WorkflowManagerPage() {
                       <div className="mt-1 text-xs text-muted-2">
                         {w.tags.length ? w.tags.join(", ") : "No tags"}
                       </div>
-                    </div>
+                    </button>
                   ))}
                 </div>
               </div>
@@ -299,6 +406,56 @@ export function WorkflowManagerPage() {
           </div>
         </div>
       </div>
+
+      <Modal
+        open={Boolean(selected)}
+        title={selected ? selected.title : "Workflow"}
+        onClose={() => {
+          if (actionBusy) return;
+          setSelected(null);
+          setActionErr(null);
+          setActionNotice(null);
+        }}
+      >
+        {actionErr && (
+          <div className="rounded-md border border-danger-border bg-danger-surface px-3 py-2 text-sm text-danger-fg">
+            {actionErr}
+          </div>
+        )}
+        {actionNotice && (
+          <div className="rounded-md border border-border bg-surface px-3 py-2 text-sm text-fg">
+            {actionNotice}
+          </div>
+        )}
+        <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2">
+          <Button
+            onClick={() => selected && copyWorkflowJson(selected)}
+            disabled={!selected || actionBusy}
+          >
+            Copy workflow JSON
+          </Button>
+          {comfyUiConfigured ? (
+            <Button
+              variant="secondary"
+              onClick={() => selected && openInComfyUi(selected)}
+              disabled={actionBusy || !selected}
+            >
+              Open in ComfyUI
+            </Button>
+          ) : (
+            <Button variant="secondary" disabled className="cursor-not-allowed">
+              Open in ComfyUI (configure in Settings)
+            </Button>
+          )}
+          <Button
+            variant="secondary"
+            onClick={() => selected && revealWorkflowJson(selected)}
+            disabled={!selected || actionBusy}
+          >
+            Reveal workflow JSON
+          </Button>
+        </div>
+      </Modal>
     </div>
   );
 }

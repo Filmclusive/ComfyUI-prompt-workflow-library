@@ -4,247 +4,267 @@ use chrono::Utc;
 use uuid::Uuid;
 
 use crate::{
-  error::{AppError, AppResult},
-  model::{PromptEntry, PromptEntryFormat, PromptEntryKind, PromptParams, PromptScope},
-  storage::{read_json, write_json_pretty_atomic},
+    error::{AppError, AppResult},
+    model::{PromptEntry, PromptEntryFormat, PromptEntryKind, PromptParams, PromptScope},
+    storage::{read_json, write_json_pretty_atomic},
 };
 
-fn prompt_root_dir(app: Option<&tauri::AppHandle>, scope: &PromptScope, parent_dir: Option<&str>) -> AppResult<PathBuf> {
-  match scope {
-    PromptScope::Global => {
-      let app = app.ok_or_else(|| AppError::InvalidInput("App handle required for global prompts".to_string()))?;
-      let dir = app
-        .path_resolver()
-        .app_data_dir()
-        .ok_or_else(|| AppError::InvalidInput("App data dir not available".to_string()))?
-        .join("library")
-        .join("global-prompts");
-      Ok(dir)
+fn prompt_root_dir(
+    app: Option<&tauri::AppHandle>,
+    scope: &PromptScope,
+    parent_dir: Option<&str>,
+) -> AppResult<PathBuf> {
+    match scope {
+        PromptScope::Global => {
+            let app = app.ok_or_else(|| {
+                AppError::InvalidInput("App handle required for global prompts".to_string())
+            })?;
+            let dir = app
+                .path_resolver()
+                .app_data_dir()
+                .ok_or_else(|| AppError::InvalidInput("App data dir not available".to_string()))?
+                .join("library")
+                .join("global-prompts");
+            Ok(dir)
+        }
+        PromptScope::Project | PromptScope::Scene | PromptScope::Shot => {
+            let parent_dir = parent_dir.ok_or_else(|| {
+                AppError::InvalidInput(
+                    "parentDir is required for non-global prompt scope".to_string(),
+                )
+            })?;
+            Ok(PathBuf::from(parent_dir).join("prompt-library"))
+        }
     }
-    PromptScope::Project | PromptScope::Scene | PromptScope::Shot => {
-      let parent_dir = parent_dir.ok_or_else(|| AppError::InvalidInput("parentDir is required for non-global prompt scope".to_string()))?;
-      Ok(PathBuf::from(parent_dir).join("prompt-library"))
-    }
-  }
 }
 
 fn entry_path(root: &Path, id: Uuid) -> PathBuf {
-  root.join(format!("entry_{}.json", id))
+    root.join(format!("entry_{}.json", id))
 }
 
 #[tauri::command(rename_all = "snake_case")]
 pub fn list_prompt_entries(
-  app: tauri::AppHandle,
-  scope: PromptScope,
-  parent_dir: Option<String>,
-  parent_id: Option<Uuid>,
+    app: tauri::AppHandle,
+    scope: PromptScope,
+    parent_dir: Option<String>,
+    parent_id: Option<Uuid>,
 ) -> Result<Vec<PromptEntry>, String> {
-  list_prompt_entries_impl(Some(&app), scope, parent_dir.as_deref(), parent_id).map_err(|e| e.to_string())
+    list_prompt_entries_impl(Some(&app), scope, parent_dir.as_deref(), parent_id)
+        .map_err(|e| e.to_string())
 }
 
 fn list_prompt_entries_impl(
-  app: Option<&tauri::AppHandle>,
-  scope: PromptScope,
-  parent_dir: Option<&str>,
-  parent_id: Option<Uuid>,
+    app: Option<&tauri::AppHandle>,
+    scope: PromptScope,
+    parent_dir: Option<&str>,
+    parent_id: Option<Uuid>,
 ) -> AppResult<Vec<PromptEntry>> {
-  let root = prompt_root_dir(app, &scope, parent_dir)?;
-  if !root.exists() {
-    return Ok(Vec::new());
-  }
-  let mut out = Vec::new();
-  for entry in std::fs::read_dir(&root)? {
-    let entry = entry?;
-    if !entry.file_type()?.is_file() {
-      continue;
+    let root = prompt_root_dir(app, &scope, parent_dir)?;
+    if !root.exists() {
+        return Ok(Vec::new());
     }
-    if !entry.file_name().to_string_lossy().starts_with("entry_") {
-      continue;
+    let mut out = Vec::new();
+    for entry in std::fs::read_dir(&root)? {
+        let entry = entry?;
+        if !entry.file_type()?.is_file() {
+            continue;
+        }
+        if !entry.file_name().to_string_lossy().starts_with("entry_") {
+            continue;
+        }
+        let pe: PromptEntry = read_json(&entry.path())?;
+        if pe.scope == scope && pe.parent_id == parent_id {
+            out.push(pe);
+        }
     }
-    let pe: PromptEntry = read_json(&entry.path())?;
-    if pe.scope == scope && pe.parent_id == parent_id {
-      out.push(pe);
-    }
-  }
-  out.sort_by(|a, b| a.title.to_lowercase().cmp(&b.title.to_lowercase()));
-  Ok(out)
+    out.sort_by(|a, b| a.title.to_lowercase().cmp(&b.title.to_lowercase()));
+    Ok(out)
 }
 
 #[tauri::command(rename_all = "snake_case")]
 pub fn create_prompt_entry(
-  app: tauri::AppHandle,
-  scope: PromptScope,
-  parent_dir: Option<String>,
-  parent_id: Option<Uuid>,
-  title: String,
-  body: String,
-  format: Option<PromptEntryFormat>,
-  positive: Option<String>,
-  negative: Option<String>,
-  params: Option<PromptParams>,
-  tags: Vec<String>,
-  kind: PromptEntryKind,
+    app: tauri::AppHandle,
+    scope: PromptScope,
+    parent_dir: Option<String>,
+    parent_id: Option<Uuid>,
+    title: String,
+    body: String,
+    format: Option<PromptEntryFormat>,
+    positive: Option<String>,
+    negative: Option<String>,
+    params: Option<PromptParams>,
+    tags: Vec<String>,
+    kind: PromptEntryKind,
 ) -> Result<PromptEntry, String> {
-  create_prompt_entry_impl(
-    Some(&app),
-    scope,
-    parent_dir.as_deref(),
-    parent_id,
-    &title,
-    &body,
-    format.unwrap_or_default(),
-    positive.as_deref(),
-    negative.as_deref(),
-    params,
-    tags,
-    kind,
-  )
+    create_prompt_entry_impl(
+        Some(&app),
+        scope,
+        parent_dir.as_deref(),
+        parent_id,
+        &title,
+        &body,
+        format.unwrap_or_default(),
+        positive.as_deref(),
+        negative.as_deref(),
+        params,
+        tags,
+        kind,
+    )
     .map_err(|e| e.to_string())
 }
 
 fn create_prompt_entry_impl(
-  app: Option<&tauri::AppHandle>,
-  scope: PromptScope,
-  parent_dir: Option<&str>,
-  parent_id: Option<Uuid>,
-  title: &str,
-  body: &str,
-  format: PromptEntryFormat,
-  positive: Option<&str>,
-  negative: Option<&str>,
-  params: Option<PromptParams>,
-  tags: Vec<String>,
-  kind: PromptEntryKind,
+    app: Option<&tauri::AppHandle>,
+    scope: PromptScope,
+    parent_dir: Option<&str>,
+    parent_id: Option<Uuid>,
+    title: &str,
+    body: &str,
+    format: PromptEntryFormat,
+    positive: Option<&str>,
+    negative: Option<&str>,
+    params: Option<PromptParams>,
+    tags: Vec<String>,
+    kind: PromptEntryKind,
 ) -> AppResult<PromptEntry> {
-  if title.trim().is_empty() {
-    return Err(AppError::InvalidInput("Title is required".to_string()));
-  }
-  let root = prompt_root_dir(app, &scope, parent_dir)?;
-  std::fs::create_dir_all(&root)?;
+    if title.trim().is_empty() {
+        return Err(AppError::InvalidInput("Title is required".to_string()));
+    }
+    let root = prompt_root_dir(app, &scope, parent_dir)?;
+    std::fs::create_dir_all(&root)?;
 
-  let now = Utc::now();
-  let entry = PromptEntry {
-    id: Uuid::new_v4(),
-    scope: scope.clone(),
-    parent_id,
-    title: title.to_string(),
-    body: body.to_string(),
-    format,
-    positive: positive.map(|s| s.to_string()).filter(|s| !s.trim().is_empty()),
-    negative: negative.map(|s| s.to_string()).filter(|s| !s.trim().is_empty()),
-    params,
-    tags,
-    kind,
-    created_at: now,
-    updated_at: now,
-  };
-  write_json_pretty_atomic(&entry_path(&root, entry.id), &entry)?;
-  Ok(entry)
+    let now = Utc::now();
+    let entry = PromptEntry {
+        id: Uuid::new_v4(),
+        scope: scope.clone(),
+        parent_id,
+        title: title.to_string(),
+        body: body.to_string(),
+        format,
+        positive: positive
+            .map(|s| s.to_string())
+            .filter(|s| !s.trim().is_empty()),
+        negative: negative
+            .map(|s| s.to_string())
+            .filter(|s| !s.trim().is_empty()),
+        params,
+        tags,
+        kind,
+        created_at: now,
+        updated_at: now,
+    };
+    write_json_pretty_atomic(&entry_path(&root, entry.id), &entry)?;
+    Ok(entry)
 }
 
 #[tauri::command(rename_all = "snake_case")]
 pub fn update_prompt_entry(
-  app: tauri::AppHandle,
-  scope: PromptScope,
-  parent_dir: Option<String>,
-  id: Uuid,
-  title: String,
-  body: String,
-  format: PromptEntryFormat,
-  positive: Option<String>,
-  negative: Option<String>,
-  params: Option<PromptParams>,
-  tags: Vec<String>,
-  kind: PromptEntryKind,
+    app: tauri::AppHandle,
+    scope: PromptScope,
+    parent_dir: Option<String>,
+    id: Uuid,
+    title: String,
+    body: String,
+    format: PromptEntryFormat,
+    positive: Option<String>,
+    negative: Option<String>,
+    params: Option<PromptParams>,
+    tags: Vec<String>,
+    kind: PromptEntryKind,
 ) -> Result<PromptEntry, String> {
-  update_prompt_entry_impl(
-    Some(&app),
-    scope,
-    parent_dir.as_deref(),
-    id,
-    &title,
-    &body,
-    format,
-    positive.as_deref(),
-    negative.as_deref(),
-    params,
-    tags,
-    kind,
-  )
-  .map_err(|e| e.to_string())
+    update_prompt_entry_impl(
+        Some(&app),
+        scope,
+        parent_dir.as_deref(),
+        id,
+        &title,
+        &body,
+        format,
+        positive.as_deref(),
+        negative.as_deref(),
+        params,
+        tags,
+        kind,
+    )
+    .map_err(|e| e.to_string())
 }
 
 fn update_prompt_entry_impl(
-  app: Option<&tauri::AppHandle>,
-  scope: PromptScope,
-  parent_dir: Option<&str>,
-  id: Uuid,
-  title: &str,
-  body: &str,
-  format: PromptEntryFormat,
-  positive: Option<&str>,
-  negative: Option<&str>,
-  params: Option<PromptParams>,
-  tags: Vec<String>,
-  kind: PromptEntryKind,
+    app: Option<&tauri::AppHandle>,
+    scope: PromptScope,
+    parent_dir: Option<&str>,
+    id: Uuid,
+    title: &str,
+    body: &str,
+    format: PromptEntryFormat,
+    positive: Option<&str>,
+    negative: Option<&str>,
+    params: Option<PromptParams>,
+    tags: Vec<String>,
+    kind: PromptEntryKind,
 ) -> AppResult<PromptEntry> {
-  if title.trim().is_empty() {
-    return Err(AppError::InvalidInput("Title is required".to_string()));
-  }
-  let root = prompt_root_dir(app, &scope, parent_dir)?;
-  let p = entry_path(&root, id);
-  if !p.exists() {
-    return Err(AppError::NotFound("Prompt entry not found".to_string()));
-  }
-  let existing: PromptEntry = read_json(&p)?;
-  if existing.scope != scope {
-    return Err(AppError::InvalidInput(
-      "Prompt entry scope mismatch".to_string(),
-    ));
-  }
+    if title.trim().is_empty() {
+        return Err(AppError::InvalidInput("Title is required".to_string()));
+    }
+    let root = prompt_root_dir(app, &scope, parent_dir)?;
+    let p = entry_path(&root, id);
+    if !p.exists() {
+        return Err(AppError::NotFound("Prompt entry not found".to_string()));
+    }
+    let existing: PromptEntry = read_json(&p)?;
+    if existing.scope != scope {
+        return Err(AppError::InvalidInput(
+            "Prompt entry scope mismatch".to_string(),
+        ));
+    }
 
-  let now = Utc::now();
-  let updated = PromptEntry {
-    id: existing.id,
-    scope: existing.scope,
-    parent_id: existing.parent_id,
-    title: title.to_string(),
-    body: body.to_string(),
-    format,
-    positive: positive.map(|s| s.to_string()).filter(|s| !s.trim().is_empty()),
-    negative: negative.map(|s| s.to_string()).filter(|s| !s.trim().is_empty()),
-    params,
-    tags,
-    kind,
-    created_at: existing.created_at,
-    updated_at: now,
-  };
+    let now = Utc::now();
+    let updated = PromptEntry {
+        id: existing.id,
+        scope: existing.scope,
+        parent_id: existing.parent_id,
+        title: title.to_string(),
+        body: body.to_string(),
+        format,
+        positive: positive
+            .map(|s| s.to_string())
+            .filter(|s| !s.trim().is_empty()),
+        negative: negative
+            .map(|s| s.to_string())
+            .filter(|s| !s.trim().is_empty()),
+        params,
+        tags,
+        kind,
+        created_at: existing.created_at,
+        updated_at: now,
+    };
 
-  write_json_pretty_atomic(&p, &updated)?;
-  Ok(updated)
+    write_json_pretty_atomic(&p, &updated)?;
+    Ok(updated)
 }
 
 #[tauri::command(rename_all = "snake_case")]
 pub fn delete_prompt_entry(
-  app: tauri::AppHandle,
-  scope: PromptScope,
-  parent_dir: Option<String>,
-  id: Uuid,
+    app: tauri::AppHandle,
+    scope: PromptScope,
+    parent_dir: Option<String>,
+    id: Uuid,
 ) -> Result<(), String> {
-  delete_prompt_entry_impl(Some(&app), scope, parent_dir.as_deref(), id).map_err(|e| e.to_string())
+    delete_prompt_entry_impl(Some(&app), scope, parent_dir.as_deref(), id)
+        .map_err(|e| e.to_string())
 }
 
 fn delete_prompt_entry_impl(
-  app: Option<&tauri::AppHandle>,
-  scope: PromptScope,
-  parent_dir: Option<&str>,
-  id: Uuid,
+    app: Option<&tauri::AppHandle>,
+    scope: PromptScope,
+    parent_dir: Option<&str>,
+    id: Uuid,
 ) -> AppResult<()> {
-  let root = prompt_root_dir(app, &scope, parent_dir)?;
-  let p = entry_path(&root, id);
-  if !p.exists() {
-    return Err(AppError::NotFound("Prompt entry not found".to_string()));
-  }
-  std::fs::remove_file(p)?;
-  Ok(())
+    let root = prompt_root_dir(app, &scope, parent_dir)?;
+    let p = entry_path(&root, id);
+    if !p.exists() {
+        return Err(AppError::NotFound("Prompt entry not found".to_string()));
+    }
+    std::fs::remove_file(p)?;
+    Ok(())
 }

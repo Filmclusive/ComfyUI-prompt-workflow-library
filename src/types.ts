@@ -72,6 +72,7 @@ export type AppSettings = {
   recentProjects: string[];
   theme: ThemeSetting;
   comfyui: {
+    appPath: string | null;
     command: string;
     workingDir: string | null;
     url: string;
