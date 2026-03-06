@@ -90,4 +90,11 @@ Windows (EXE via NSIS):
 
 - Export creates a clean `.zip` bundle (optionally includes history and attachments).
 - ComfyUI integration is intentionally “external”: configure a launch command and working directory, then open the web UI URL.
+
+## ComfyUI Filmclusive Bridge (optional)
+
+This repo includes a ComfyUI custom-nodes plugin that can sync prompts/params with the current shot and save/open workflows in the project `workflows/` folder:
+
+- `integrations/comfyui/ComfyUI-Filmclusive-Bridge`
+
 - Tauri invoke command args are `snake_case` (e.g. `project_dir`, `scene_id`, `shot_id`).

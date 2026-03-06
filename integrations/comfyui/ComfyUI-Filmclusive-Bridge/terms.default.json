@@ -1,0 +1,12 @@
+{
+  "labels": {
+    "cfg": "Prompt strength (CFG)",
+    "steps": "Steps",
+    "seed": "Seed",
+    "sampler_name": "Sampler",
+    "scheduler": "Scheduler",
+    "width": "Width",
+    "height": "Height"
+  }
+}
+

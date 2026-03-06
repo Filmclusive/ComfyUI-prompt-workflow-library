@@ -1,5 +1,7 @@
 pub mod attachments;
 pub mod comfyui;
+pub mod comfyui_bridge;
+pub mod comfyui_bridge_installer;
 pub mod export;
 pub mod history;
 pub mod project;

@@ -80,6 +80,9 @@ fn main() {
             commands::comfyui::open_comfyui_application,
             commands::comfyui::launch_comfyui,
             commands::comfyui::stop_comfyui,
+            // ComfyUI bridge
+            commands::comfyui_bridge::write_comfyui_bridge_context,
+            commands::comfyui_bridge_installer::install_comfyui_bridge_plugin,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

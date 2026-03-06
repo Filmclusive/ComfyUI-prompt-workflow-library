@@ -2,9 +2,12 @@ import { useEffect, useState } from "react";
 import { cmd } from "../../lib/tauri";
 import type { AppSettings } from "../../types";
 import { Button } from "../components/Button";
+import { Input } from "../components/Input";
 import { useAppState } from "../../state/AppState";
-import { open } from "@tauri-apps/api/dialog";
+import { open as openDialog } from "@tauri-apps/api/dialog";
 import { platform } from "@tauri-apps/api/os";
+import { open as openShell } from "@tauri-apps/api/shell";
+import { join } from "@tauri-apps/api/path";
 
 export function SettingsPage() {
   const { settings: savedSettings, setSettings: setSavedSettings } = useAppState();
@@ -56,7 +59,7 @@ export function SettingsPage() {
         return;
       }
 
-      const selected = await open({
+      const selected = await openDialog({
         multiple: false,
         title: "Select ComfyUI application",
         directory: os === "darwin",
@@ -90,7 +93,7 @@ export function SettingsPage() {
     setBusy(true);
     setErr(null);
     try {
-      const selected = await open({
+      const selected = await openDialog({
         multiple: false,
         title: "Select ComfyUI application",
         directory: os === "darwin",
@@ -124,6 +127,21 @@ export function SettingsPage() {
     setErr(null);
     try {
       await cmd<void>("open_comfyui_application");
+    } catch (e) {
+      setErr(String(e));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function installBridge(force: boolean) {
+    setBusy(true);
+    setErr(null);
+    try {
+      const dir = await cmd<string>("install_comfyui_bridge_plugin", {
+        force: force ? true : undefined,
+      });
+      await openShell(dir);
     } catch (e) {
       setErr(String(e));
     } finally {
@@ -228,6 +246,119 @@ export function SettingsPage() {
               </div>
               <div className="mt-2 text-xs text-muted-2">
                 If ComfyUI is not detected, use Find application to select it from your Applications or Programs folder.
+              </div>
+            </div>
+
+            <div className="mt-3 grid grid-cols-1 gap-3 md:grid-cols-2">
+              <div>
+                <div className="text-xs font-medium text-muted-2">Launch command</div>
+                <div className="mt-1">
+                  <Input
+                    value={settings.comfyui.command}
+                    onChange={(v) =>
+                      setSettings((s) =>
+                        s ? { ...s, comfyui: { ...s.comfyui, command: v } } : s,
+                      )
+                    }
+                    placeholder="python main.py --listen"
+                  />
+                </div>
+                <div className="mt-1 text-xs text-muted-2">
+                  Used by Launch/Stop in the app.
+                </div>
+              </div>
+
+              <div>
+                <div className="text-xs font-medium text-muted-2">ComfyUI URL</div>
+                <div className="mt-1">
+                  <Input
+                    value={settings.comfyui.url}
+                    onChange={(v) =>
+                      setSettings((s) =>
+                        s ? { ...s, comfyui: { ...s.comfyui, url: v } } : s,
+                      )
+                    }
+                    placeholder="http://127.0.0.1:8188"
+                  />
+                </div>
+                <div className="mt-1 text-xs text-muted-2">
+                  Used when opening the web UI.
+                </div>
+              </div>
+            </div>
+
+            <div className="mt-3 rounded-md border border-border bg-surface px-3 py-3">
+              <div className="text-xs font-medium text-muted-2">Working folder</div>
+              <div className="mt-1 text-sm text-fg">
+                {settings.comfyui.workingDir ?? "Not set"}
+              </div>
+              <div className="mt-2 flex flex-wrap items-center gap-2">
+                <Button
+                  variant="secondary"
+                  disabled={busy}
+                  onClick={async () => {
+                    if (!settings) return;
+                    setBusy(true);
+                    setErr(null);
+                    try {
+                      const selected = await openDialog({
+                        multiple: false,
+                        title: "Select ComfyUI folder",
+                        directory: true,
+                      });
+                      if (typeof selected !== "string" || !selected.trim()) return;
+                      setSettings((s) =>
+                        s
+                          ? { ...s, comfyui: { ...s.comfyui, workingDir: selected } }
+                          : s,
+                      );
+                    } catch (e) {
+                      setErr(String(e));
+                    } finally {
+                      setBusy(false);
+                    }
+                  }}
+                >
+                  Select folder
+                </Button>
+                <Button
+                  variant="secondary"
+                  disabled={busy || !settings.comfyui.workingDir}
+                  onClick={async () => {
+                    if (!settings?.comfyui.workingDir) return;
+                    await openShell(settings.comfyui.workingDir);
+                  }}
+                >
+                  Open folder
+                </Button>
+                <Button
+                  variant="secondary"
+                  disabled={busy || !settings.comfyui.workingDir}
+                  onClick={async () => {
+                    if (!settings?.comfyui.workingDir) return;
+                    const p = await join(settings.comfyui.workingDir, "user", "filmclusive");
+                    await openShell(p);
+                  }}
+                >
+                  Open bridge files
+                </Button>
+                <Button
+                  variant="secondary"
+                  disabled={busy || !settings.comfyui.workingDir}
+                  onClick={() => installBridge(false)}
+                >
+                  Install ComfyUI plugin
+                </Button>
+                <Button
+                  variant="secondary"
+                  disabled={busy || !settings.comfyui.workingDir}
+                  onClick={() => installBridge(true)}
+                >
+                  Reinstall plugin
+                </Button>
+              </div>
+              <div className="mt-2 text-xs text-muted-2">
+                Filmclusive writes `context.json` into `user/filmclusive/` when you open a shot.
               </div>
             </div>
             <div className="mt-3">

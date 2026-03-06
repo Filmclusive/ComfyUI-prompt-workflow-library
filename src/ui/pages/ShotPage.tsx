@@ -43,6 +43,7 @@ export function ShotPage() {
   const [negative, setNegative] = useState("");
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
+  const [bridgeErr, setBridgeErr] = useState<string | null>(null);
   const [revisions, setRevisions] = useState<Revision[]>([]);
   const [message, setMessage] = useState("");
   const [attachRole, setAttachRole] = useState<AttachmentRole>("reference");
@@ -69,6 +70,17 @@ export function ShotPage() {
     setCurrentProjectDir(projectDir);
     setSelectedSceneId(sceneId);
   }, [projectDir, sceneId, setCurrentProjectDir, setSelectedSceneId, setWorkspaceScope]);
+
+  useEffect(() => {
+    if (!projectDir || !sceneId || !shotId) return;
+    cmd<void>("write_comfyui_bridge_context", {
+      project_dir: projectDir,
+      scene_id: sceneId,
+      shot_id: shotId,
+    })
+      .then(() => setBridgeErr(null))
+      .catch((e) => setBridgeErr(String(e)));
+  }, [projectDir, sceneId, shotId]);
 
   useEffect(() => {
     if (!shotDirArgs) return;
@@ -760,14 +772,19 @@ export function ShotPage() {
                     <option value="project">Project</option>
                   </select>
                 </div>
-                <div className="mt-1 text-xs text-muted-2">
-                  Project workflows are stored in the project folder.
-                </div>
+            <div className="mt-1 text-xs text-muted-2">
+              Project workflows are stored in the project folder.
+            </div>
+            {bridgeErr && (
+              <div className="mt-2 text-xs text-muted-2">
+                ComfyUI bridge is not active: {bridgeErr}
               </div>
-              <div>
-                <div className="text-xs font-medium text-muted-2">
-                  Workflow
-                </div>
+            )}
+          </div>
+          <div>
+            <div className="text-xs font-medium text-muted-2">
+              Workflow
+            </div>
                 <div className="mt-1">
                   <select
                     value={selectedWorkflowId}
