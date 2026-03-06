@@ -35,6 +35,8 @@
         "title": "Filmclusive Library",
         "width": 1200,
         "height": 800,
+        "minWidth": 320,
+        "minHeight": 420,
         "resizable": true
       }
     ],
@@ -42,8 +44,8 @@
       "csp": null
     },
     "bundle": {
-      "active": false,
-      "targets": "all",
+      "active": true,
+      "targets": ["dmg", "nsis"],
       "identifier": "com.filmclusive.library",
       "icon": [
         "icons/icon.icns",

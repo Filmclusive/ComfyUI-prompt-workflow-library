@@ -588,8 +588,8 @@ export function PromptLibraryPage() {
 
   return (
     <div className="p-4 w-full max-w-lg mx-auto min-w-0">
-      <div className="flex items-start justify-between gap-3">
-        <div>
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div className="min-w-0">
           <div className="text-lg font-semibold text-fg">Prompt library</div>
           <div className="mt-2 text-sm text-muted">
             {workspaceScope === "global"
@@ -597,7 +597,7 @@ export function PromptLibraryPage() {
               : "Project prompts apply to the selected project."}
           </div>
         </div>
-        <div className="flex items-center">
+        <div className="flex items-center sm:justify-end">
           <Button
             variant="secondary"
             onClick={openCreateDialog}
@@ -661,7 +661,7 @@ export function PromptLibraryPage() {
                   }}
                   disabled={busy}
                 >
-                  <div className="flex items-start justify-between gap-3">
+                  <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between sm:gap-3">
                     <div className="min-w-0">
                       <div className="flex items-center gap-2 min-w-0">
                         <div className="text-sm font-medium text-fg truncate">
@@ -671,84 +671,84 @@ export function PromptLibraryPage() {
                           {advanced ? "Advanced" : "Simple"}
                         </div>
                       </div>
-	                      {summary && (
-	                        <div className="mt-1 text-xs text-muted-2 truncate">
-	                          {summary}
-	                        </div>
-	                      )}
-	                      {!expanded && preview && (
-	                        <div className="mt-1 text-xs text-muted-2 fc-line-clamp-2">
-	                          {preview}
-	                        </div>
-	                      )}
-	                    </div>
+                      {summary && (
+                        <div className="mt-1 text-xs text-muted-2 truncate">
+                          {summary}
+                        </div>
+                      )}
+                      {!expanded && preview && (
+                        <div className="mt-1 text-xs text-muted-2 fc-line-clamp-2">
+                          {preview}
+                        </div>
+                      )}
+                    </div>
 
                     <div
-	                      className="shrink-0 flex items-center gap-2"
-	                      onClick={(e) => e.stopPropagation()}
-	                    >
-	                      {!expanded ? (
-	                        <Button
-	                          variant="secondary"
-	                          className="px-2 py-1 text-xs"
-	                          disabled={busy}
-	                          onClick={() => {
-	                            if (advanced) {
-	                              void copy(
-	                                `Positive:\n${p.positive ?? ""}\n\nNegative:\n${p.negative ?? ""}`,
-	                              );
-	                              return;
-	                            }
-	                            void copy(p.body ?? "");
-	                          }}
-	                        >
-	                          Copy
-	                        </Button>
-	                      ) : advanced ? (
-	                        <>
-	                          <Button
-	                            variant="secondary"
-	                            className="px-2 py-1 text-xs"
-	                            disabled={busy}
-	                            onClick={() => void copy(p.positive ?? "")}
-	                          >
-	                            Copy +
-	                          </Button>
-	                          <Button
-	                            variant="secondary"
-	                            className="px-2 py-1 text-xs"
-	                            disabled={busy}
-	                            onClick={() => void copy(p.negative ?? "")}
-	                          >
-	                            Copy -
-	                          </Button>
-	                          <Button
-	                            variant="secondary"
-	                            className="px-2 py-1 text-xs"
-	                            disabled={busy}
-	                            onClick={() =>
-	                              void copy(
-	                                `Positive:\n${p.positive ?? ""}\n\nNegative:\n${p.negative ?? ""}`,
-	                              )
-	                            }
-	                          >
-	                            Copy +/-
-	                          </Button>
-	                        </>
-	                      ) : (
-	                        <Button
-	                          variant="secondary"
-	                          className="px-2 py-1 text-xs"
-	                          disabled={busy}
-	                          onClick={() => void copy(p.body ?? "")}
-	                        >
-	                          Copy
-	                        </Button>
-	                      )}
+                      className="flex flex-wrap items-center justify-start gap-2 sm:justify-end"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      {!expanded ? (
+                        <Button
+                          variant="secondary"
+                          className="px-2 py-1 text-xs whitespace-nowrap"
+                          disabled={busy}
+                          onClick={() => {
+                            if (advanced) {
+                              void copy(
+                                `Positive:\n${p.positive ?? ""}\n\nNegative:\n${p.negative ?? ""}`,
+                              );
+                              return;
+                            }
+                            void copy(p.body ?? "");
+                          }}
+                        >
+                          Copy
+                        </Button>
+                      ) : advanced ? (
+                        <>
+                          <Button
+                            variant="secondary"
+                            className="px-2 py-1 text-xs whitespace-nowrap"
+                            disabled={busy}
+                            onClick={() => void copy(p.positive ?? "")}
+                          >
+                            Copy +
+                          </Button>
+                          <Button
+                            variant="secondary"
+                            className="px-2 py-1 text-xs whitespace-nowrap"
+                            disabled={busy}
+                            onClick={() => void copy(p.negative ?? "")}
+                          >
+                            Copy -
+                          </Button>
+                          <Button
+                            variant="secondary"
+                            className="px-2 py-1 text-xs whitespace-nowrap"
+                            disabled={busy}
+                            onClick={() =>
+                              void copy(
+                                `Positive:\n${p.positive ?? ""}\n\nNegative:\n${p.negative ?? ""}`,
+                              )
+                            }
+                          >
+                            Copy +/-
+                          </Button>
+                        </>
+                      ) : (
+                        <Button
+                          variant="secondary"
+                          className="px-2 py-1 text-xs whitespace-nowrap"
+                          disabled={busy}
+                          onClick={() => void copy(p.body ?? "")}
+                        >
+                          Copy
+                        </Button>
+                      )}
 
-	                      <PromptActionsMenu
-	                        disabled={busy || !canManagePrompts}
-	                        onEdit={() => openEditDialog(p)}
+                      <PromptActionsMenu
+                        disabled={busy || !canManagePrompts}
+                        onEdit={() => openEditDialog(p)}
                         onDelete={async () => remove(p.id)}
                       />
                     </div>

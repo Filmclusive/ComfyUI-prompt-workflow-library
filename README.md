@@ -65,6 +65,18 @@ Install dependencies:
 Run the desktop app:
 - `npm run tauri dev`
 
+## Build installers (DMG / EXE)
+
+This app uses the built-in Tauri bundler to generate platform installers.
+
+macOS (DMG):
+- `npm run desktop:build:mac`
+- Output: `src-tauri/target/release/bundle/dmg/*.dmg`
+
+Windows (EXE via NSIS):
+- `npm run desktop:build:win`
+- Output: `src-tauri/target/release/bundle/nsis/*.exe`
+
 ## Current UI (MVP)
 
 - Home: create/open project (folder path)

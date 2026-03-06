@@ -307,7 +307,7 @@ export function ProjectPage() {
             <label className="flex items-center gap-2 text-sm text-muted">
               <input
                 type="checkbox"
-                className="accent-indigo-600"
+                className="accent-accent"
                 checked={includeHistory}
                 onChange={(e) => setIncludeHistory(e.target.checked)}
               />
@@ -316,7 +316,7 @@ export function ProjectPage() {
             <label className="flex items-center gap-2 text-sm text-muted">
               <input
                 type="checkbox"
-                className="accent-indigo-600"
+                className="accent-accent"
                 checked={includeAttachments}
                 onChange={(e) => setIncludeAttachments(e.target.checked)}
               />

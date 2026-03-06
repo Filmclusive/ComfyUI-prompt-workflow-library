@@ -40,23 +40,27 @@ export function Modal({
         className="absolute inset-0 bg-black/60"
         onClick={onClose}
       />
-      <div
-        className={[
-          "relative mx-auto mt-12 rounded-lg border border-border bg-surface shadow-xl",
-          widthClass,
-        ].join(" ")}
-      >
-        <div className="flex items-center justify-between gap-3 border-b border-border px-4 py-3">
-          <div className="text-sm font-semibold text-fg">{title}</div>
-          <button
-            type="button"
-            className="rounded-md border border-border bg-surface px-2 py-1 text-sm text-muted hover:bg-surface-hover"
-            onClick={onClose}
-          >
-            Close
-          </button>
+      <div className="relative h-full p-4 flex items-start justify-center sm:items-center">
+        <div
+          className={[
+            "max-h-[calc(100%-2rem)] overflow-hidden rounded-lg border border-border bg-surface shadow-xl",
+            widthClass,
+          ].join(" ")}
+        >
+          <div className="flex items-center justify-between gap-3 border-b border-border px-4 py-3">
+            <div className="text-sm font-semibold text-fg">{title}</div>
+            <button
+              type="button"
+              className="rounded-md border border-border bg-surface px-2 py-1 text-sm text-muted hover:bg-surface-hover"
+              onClick={onClose}
+            >
+              Close
+            </button>
+          </div>
+          <div className="max-h-[calc(100vh-10rem)] overflow-auto p-4">
+            {children}
+          </div>
         </div>
-        <div className="p-4">{children}</div>
       </div>
     </div>,
     document.body,

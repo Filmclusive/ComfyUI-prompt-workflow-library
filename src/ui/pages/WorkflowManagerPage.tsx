@@ -312,24 +312,28 @@ export function WorkflowManagerPage() {
           setActionNotice(null);
         }}
       >
-        <div className="flex items-start justify-between gap-3">
-          <div className="flex items-start gap-3">
-            {isApproved && (
-              <img
-                src={filmclusiveIcon}
-                alt="Filmclusive icon"
-                className="h-5 w-5 flex-shrink-0 rounded-md object-cover"
-              />
-            )}
-            <span className="text-sm font-medium text-fg">{w.title}</span>
-          </div>
-          {modelLabel && (
-            <span className="text-xs font-medium text-muted-2 whitespace-nowrap">
-              {modelLabel}
-            </span>
+        <div className="flex items-start gap-3 min-w-0">
+          {isApproved && (
+            <img
+              src={filmclusiveIcon}
+              alt="Filmclusive icon"
+              className="h-5 w-5 flex-shrink-0 rounded-md object-cover"
+            />
           )}
+          <div className="min-w-0 flex-1">
+            <div className="text-sm font-medium text-fg truncate">
+              {w.title}
+            </div>
+            {modelLabel && (
+              <div className="mt-1 text-xs font-medium text-muted-2 truncate">
+                {modelLabel}
+              </div>
+            )}
+            <div className="mt-1 text-xs text-muted-2">
+              Updated {updatedLabel}
+            </div>
+          </div>
         </div>
-        <div className="mt-1 text-xs text-muted-2">Updated {updatedLabel}</div>
       </button>
     );
   }
@@ -599,7 +603,7 @@ export function WorkflowManagerPage() {
             <div className="text-xs font-medium text-muted-2">
               Workflow JSON file
             </div>
-            <div className="mt-1 flex items-center gap-2">
+            <div className="mt-1 flex flex-col gap-2 sm:flex-row sm:items-center">
               <Input
                 value={jsonPath}
                 onChange={setJsonPath}
@@ -609,6 +613,7 @@ export function WorkflowManagerPage() {
                 variant="secondary"
                 onClick={chooseWorkflowFile}
                 disabled={busy || (workspaceScope === "project" && !currentProjectDir)}
+                className="shrink-0"
               >
                 Choose
               </Button>

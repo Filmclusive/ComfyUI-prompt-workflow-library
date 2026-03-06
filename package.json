@@ -7,7 +7,11 @@
     "dev": "vite",
     "build": "tsc -b && vite build",
     "preview": "vite preview",
-    "tauri": "tauri"
+    "tauri": "tauri",
+    "desktop:dev": "tauri dev",
+    "desktop:build": "tauri build",
+    "desktop:build:mac": "tauri build --bundles dmg",
+    "desktop:build:win": "tauri build --bundles nsis"
   },
   "dependencies": {
     "@tauri-apps/api": "^1.5.0",

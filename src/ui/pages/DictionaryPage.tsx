@@ -68,20 +68,20 @@ export function DictionaryPage() {
   }
 
   return (
-    <div className="h-[calc(100vh-0px)] overflow-hidden p-4 max-w-6xl flex flex-col">
+    <div className="p-4 max-w-6xl">
       <div className="text-lg font-semibold text-fg">ComfyUI dictionary</div>
       <div className="mt-2 text-sm text-muted">
         Plain-language definitions for common ComfyUI and diffusion terms.
       </div>
 
-      <div className="mt-5 flex-1 min-h-0 grid grid-cols-1 gap-4 lg:grid-cols-[320px_1fr]">
-        <div className="rounded-lg border border-border bg-surface p-4 flex flex-col min-h-0">
+      <div className="mt-5 grid grid-cols-1 gap-4 lg:grid-cols-[320px_1fr]">
+        <div className="rounded-lg border border-border bg-surface p-4">
           <div className="text-sm font-semibold text-fg">Terms</div>
           <div className="mt-3">
             <Input value={query} onChange={setQuery} placeholder="Search terms" />
           </div>
 
-          <div className="mt-4 flex-1 min-h-0 overflow-auto pr-1 space-y-4">
+          <div className="mt-4 space-y-4">
             {grouped.map(([cat, list]) => (
               <div key={cat}>
                 <div className="text-xs font-medium text-muted-2">{cat}</div>
@@ -112,7 +112,7 @@ export function DictionaryPage() {
           </div>
         </div>
 
-        <div className="rounded-lg border border-border bg-surface p-4 min-h-0 overflow-auto">
+        <div className="rounded-lg border border-border bg-surface p-4">
           {selected ? (
             <>
               <div className="flex items-start justify-between gap-4">

@@ -8,7 +8,7 @@ import "./index.css";
 ReactDOM.createRoot(document.getElementById("root")!).render(
   <React.StrictMode>
     <AppProviders>
-      <div className="min-h-full bg-bg text-fg font-sans">
+      <div className="h-full bg-bg text-fg font-sans">
         <RouterProvider router={router} />
       </div>
     </AppProviders>

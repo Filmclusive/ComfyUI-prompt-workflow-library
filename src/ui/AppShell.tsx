@@ -175,7 +175,7 @@ export function AppShell() {
   }
 
   return (
-    <div className="min-h-full flex relative">
+    <div className="h-full min-h-0 flex relative overflow-hidden">
       {mobileNavOpen && (
         <button
           type="button"
@@ -187,162 +187,173 @@ export function AppShell() {
 
       <aside
         className={clsx(
-          "w-72 shrink-0 border-r border-border bg-surface",
+          "w-72 max-w-[calc(100vw-3rem)] shrink-0 border-r border-border bg-surface",
           "fixed inset-y-0 left-0 z-40 md:static md:z-auto",
           "transition-transform md:transition-none",
           mobileNavOpen ? "translate-x-0" : "-translate-x-full md:translate-x-0",
         )}
       >
-        <div className="px-4 py-4">
-          <div className="text-sm font-semibold text-fg">
-            Filmclusive Library
-          </div>
-          <div className="mt-4">
-            <div className="text-xs font-medium text-muted-2">Workspace</div>
-            <select
-              value={selectorValue}
-              onChange={(e) => onSelectWorkspace(e.target.value)}
-              className="mt-1 w-full rounded-md border border-border bg-surface px-3 py-2 text-sm text-fg focus:outline-none focus:ring-2 focus:ring-accent-ring"
-            >
-              <option value="__global__">Global</option>
-              {workspaceScope === "project" && !currentProjectDir && (
-                <option value="" disabled>
-                  Select a project…
-                </option>
+        <div className="flex h-full min-h-0 flex-col">
+          <div className="shrink-0 px-4 py-4">
+            <div className="text-sm font-semibold text-fg">
+              Filmclusive Library
+            </div>
+            <div className="mt-4">
+              <div className="text-xs font-medium text-muted-2">Workspace</div>
+              <select
+                value={selectorValue}
+                onChange={(e) => onSelectWorkspace(e.target.value)}
+                className="mt-1 w-full rounded-md border border-border bg-surface px-3 py-2 text-sm text-fg focus:outline-none focus:ring-2 focus:ring-accent-ring"
+              >
+                <option value="__global__">Global</option>
+                {workspaceScope === "project" && !currentProjectDir && (
+                  <option value="" disabled>
+                    Select a project…
+                  </option>
+                )}
+                {recentProjects.map((p) => (
+                  <option key={p.dir} value={p.dir}>
+                    {p.name ? `${p.name} — ${p.dir}` : p.dir}
+                  </option>
+                ))}
+              </select>
+              <button
+                type="button"
+                className="mt-2 w-full rounded-md border border-border bg-surface px-3 py-2 text-sm text-muted hover:bg-surface-hover focus:outline-none focus:ring-2 focus:ring-accent-ring"
+                onClick={() => setDialogOpen(true)}
+              >
+                Open / create project…
+              </button>
+              {settingsErr && (
+                <div className="mt-2 text-xs text-danger-fg">{settingsErr}</div>
               )}
-              {recentProjects.map((p) => (
-                <option key={p.dir} value={p.dir}>
-                  {p.name ? `${p.name} — ${p.dir}` : p.dir}
-                </option>
-              ))}
-            </select>
-            <button
-              type="button"
-              className="mt-2 w-full rounded-md border border-border bg-surface px-3 py-2 text-sm text-muted hover:bg-surface-hover focus:outline-none focus:ring-2 focus:ring-accent-ring"
-              onClick={() => setDialogOpen(true)}
-            >
-              Open / create project…
-            </button>
-            {settingsErr && (
-              <div className="mt-2 text-xs text-danger-fg">{settingsErr}</div>
-            )}
+            </div>
           </div>
 
-          <nav className="mt-6 flex flex-col gap-1">
-            {workspaceScope === "project" ? (
-              <>
-                <SideLink to="/project" label="Shots" onNavigate={() => setMobileNavOpen(false)} />
-                <SideLink to="/prompts" label="Prompts" onNavigate={() => setMobileNavOpen(false)} />
-                <SideLink to="/workflows" label="Workflows" onNavigate={() => setMobileNavOpen(false)} />
-              </>
-            ) : (
-              <>
-                <SideLink to="/prompts" label="Prompts" onNavigate={() => setMobileNavOpen(false)} />
-                <SideLink to="/workflows" label="Workflows" onNavigate={() => setMobileNavOpen(false)} />
-              </>
-            )}
-            <SideLink to="/dictionary" label="Dictionary" onNavigate={() => setMobileNavOpen(false)} />
-            <SideLink to="/settings" label="Settings" onNavigate={() => setMobileNavOpen(false)} />
-          </nav>
+          <div className="flex-1 min-h-0 overflow-auto px-4 pb-4">
+            <nav className="flex flex-col gap-1">
+              {workspaceScope === "project" ? (
+                <>
+                  <SideLink to="/project" label="Shots" onNavigate={() => setMobileNavOpen(false)} />
+                  <SideLink to="/prompts" label="Prompts" onNavigate={() => setMobileNavOpen(false)} />
+                  <SideLink to="/workflows" label="Workflows" onNavigate={() => setMobileNavOpen(false)} />
+                </>
+              ) : (
+                <>
+                  <SideLink to="/prompts" label="Prompts" onNavigate={() => setMobileNavOpen(false)} />
+                  <SideLink to="/workflows" label="Workflows" onNavigate={() => setMobileNavOpen(false)} />
+                </>
+              )}
+              <SideLink to="/dictionary" label="Dictionary" onNavigate={() => setMobileNavOpen(false)} />
+              <SideLink to="/settings" label="Settings" onNavigate={() => setMobileNavOpen(false)} />
+            </nav>
 
-          {workspaceScope === "project" && currentProjectDir && (
-            <div className="mt-6">
-              <div className="flex items-center justify-between gap-2">
-                <div className="text-xs font-medium text-muted-2">Scenes</div>
-                <div className="text-[11px] text-muted-2">
-                  {sceneBusy ? "Loading…" : ""}
+            {workspaceScope === "project" && currentProjectDir && (
+              <div className="mt-6">
+                <div className="flex items-center justify-between gap-2">
+                  <div className="text-xs font-medium text-muted-2">Scenes</div>
+                  <div className="text-[11px] text-muted-2">
+                    {sceneBusy ? "Loading…" : ""}
+                  </div>
+                </div>
+
+                <div className="mt-2 space-y-1">
+                  {scenes.map((s) => {
+                    const count = shotsBySceneId[s.id]?.length;
+                    const isActive = s.id === selectedSceneId;
+                    return (
+                      <button
+                        key={s.id}
+                        type="button"
+                        onClick={() => {
+                          setSelectedSceneId(s.id);
+                          nav("/project");
+                        }}
+                        className={clsx(
+                          "w-full text-left rounded-md border px-3 py-2",
+                          isActive
+                            ? "border-accent bg-surface-hover"
+                            : "border-border bg-surface hover:bg-surface-hover",
+                        )}
+                      >
+                        <div className="flex items-center justify-between gap-2">
+                          <div className="text-sm font-medium text-fg">
+                            Scene {String(s.number).padStart(2, "0")}
+                          </div>
+                          {typeof count === "number" && (
+                            <div className="text-xs text-muted-2">
+                              {count}
+                            </div>
+                          )}
+                        </div>
+                        <div className="mt-1 text-sm text-muted">
+                          {s.title || "Untitled"}
+                        </div>
+                      </button>
+                    );
+                  })}
+                  {scenes.length === 0 && (
+                    <div className="rounded-md border border-border bg-surface px-3 py-2 text-sm text-muted">
+                      No scenes yet.
+                    </div>
+                  )}
+                </div>
+
+                <div className="mt-3 space-y-2">
+                  <Input
+                    value={newSceneTitle}
+                    onChange={setNewSceneTitle}
+                    placeholder="New scene title"
+                  />
+                  <Button
+                    onClick={createSceneFromSidebar}
+                    disabled={sceneBusy}
+                    variant="secondary"
+                  >
+                    Add scene
+                  </Button>
+                  {sceneErr && (
+                    <div className="text-xs text-danger-fg">{sceneErr}</div>
+                  )}
                 </div>
               </div>
-
-              <div className="mt-2 space-y-1">
-                {scenes.map((s) => {
-                  const count = shotsBySceneId[s.id]?.length;
-                  const isActive = s.id === selectedSceneId;
-                  return (
-                    <button
-                      key={s.id}
-                      type="button"
-                      onClick={() => {
-                        setSelectedSceneId(s.id);
-                        nav("/project");
-                      }}
-                      className={clsx(
-                        "w-full text-left rounded-md border px-3 py-2",
-                        isActive
-                          ? "border-accent bg-surface-hover"
-                          : "border-border bg-surface hover:bg-surface-hover",
-                      )}
-                    >
-                      <div className="flex items-center justify-between gap-2">
-                        <div className="text-sm font-medium text-fg">
-                          Scene {String(s.number).padStart(2, "0")}
-                        </div>
-                        {typeof count === "number" && (
-                          <div className="text-xs text-muted-2">
-                            {count}
-                          </div>
-                        )}
-                      </div>
-                      <div className="mt-1 text-sm text-muted">
-                        {s.title || "Untitled"}
-                      </div>
-                    </button>
-                  );
-                })}
-                {scenes.length === 0 && (
-                  <div className="rounded-md border border-border bg-surface px-3 py-2 text-sm text-muted">
-                    No scenes yet.
-                  </div>
-                )}
-              </div>
-
-              <div className="mt-3 space-y-2">
-                <Input
-                  value={newSceneTitle}
-                  onChange={setNewSceneTitle}
-                  placeholder="New scene title"
-                />
-                <Button
-                  onClick={createSceneFromSidebar}
-                  disabled={sceneBusy}
-                  variant="secondary"
-                >
-                  Add scene
-                </Button>
-                {sceneErr && (
-                  <div className="text-xs text-danger-fg">{sceneErr}</div>
-                )}
-              </div>
-            </div>
-          )}
+            )}
+          </div>
         </div>
       </aside>
 
-      <main className="flex-1 min-w-0 pt-10 md:pt-0">
-        {!mobileNavOpen && (
-          <button
-            type="button"
-            aria-label="Open navigation"
-            className="fixed left-3 top-3 z-20 rounded-md border border-border bg-surface p-2 text-fg shadow-sm hover:bg-surface-hover focus:outline-none focus:ring-2 focus:ring-accent-ring md:hidden"
-            onClick={() => setMobileNavOpen(true)}
-          >
-            <svg
-              aria-hidden="true"
-              viewBox="0 0 24 24"
-              className="h-4 w-4"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
+      <main className="flex-1 min-w-0 min-h-0 flex flex-col overflow-hidden">
+        <div className="md:hidden shrink-0 border-b border-border bg-bg/80 backdrop-blur supports-[backdrop-filter]:bg-bg/70">
+          <div className="flex items-center gap-2 px-3 py-2">
+            <button
+              type="button"
+              aria-label="Open navigation"
+              className="rounded-md border border-border bg-surface p-2 text-fg shadow-sm hover:bg-surface-hover focus:outline-none focus:ring-2 focus:ring-accent-ring"
+              onClick={() => setMobileNavOpen(true)}
             >
-              <path d="M4 6h16" />
-              <path d="M4 12h16" />
-              <path d="M4 18h16" />
-            </svg>
-          </button>
-        )}
-        <Outlet />
+              <svg
+                aria-hidden="true"
+                viewBox="0 0 24 24"
+                className="h-4 w-4"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <path d="M4 6h16" />
+                <path d="M4 12h16" />
+                <path d="M4 18h16" />
+              </svg>
+            </button>
+            <div className="min-w-0 text-sm font-semibold text-fg truncate">
+              Filmclusive Library
+            </div>
+          </div>
+        </div>
+        <div className="flex-1 min-h-0 overflow-auto">
+          <Outlet />
+        </div>
       </main>
 
       <ProjectDialog open={dialogOpen} onClose={() => setDialogOpen(false)} />
