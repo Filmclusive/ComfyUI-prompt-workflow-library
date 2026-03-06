@@ -5,7 +5,7 @@ use uuid::Uuid;
 
 use crate::{
     error::{AppError, AppResult},
-    model::{Scene, Shot, ShotParams, ShotStatus},
+    model::{Scene, Shot, ShotParams, ShotPromptFormat, ShotStatus},
     paths::{
         ensure_dir, scene_dir, scene_json_path, scene_shots_dir, shot_dir, shot_dir_name,
         shot_json_path, shot_negative_path, shot_positive_path,
@@ -104,6 +104,7 @@ fn create_shot_impl(project_dir: &str, scene_id: Uuid) -> AppResult<Shot> {
         number,
         title: String::new(),
         status: ShotStatus::Todo,
+        prompt_format: ShotPromptFormat::Advanced,
         notes: String::new(),
         tags: Vec::new(),
         params: ShotParams::default(),

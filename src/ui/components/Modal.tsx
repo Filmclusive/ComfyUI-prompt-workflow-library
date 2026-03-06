@@ -6,11 +6,13 @@ export function Modal({
   title,
   children,
   onClose,
+  size = "lg",
 }: {
   open: boolean;
   title: string;
   children: React.ReactNode;
   onClose: () => void;
+  size?: "sm" | "md" | "lg";
 }) {
   useEffect(() => {
     if (!open) return;
@@ -23,6 +25,13 @@ export function Modal({
 
   if (!open) return null;
 
+  const widthClass =
+    size === "sm"
+      ? "w-[min(480px,calc(100%-2rem))]"
+      : size === "md"
+        ? "w-[min(640px,calc(100%-2rem))]"
+        : "w-[min(720px,calc(100%-2rem))]";
+
   return createPortal(
     <div className="fixed inset-0 z-50">
       <button
@@ -31,7 +40,12 @@ export function Modal({
         className="absolute inset-0 bg-black/60"
         onClick={onClose}
       />
-      <div className="relative mx-auto mt-12 w-[min(720px,calc(100%-2rem))] rounded-lg border border-border bg-surface shadow-xl">
+      <div
+        className={[
+          "relative mx-auto mt-12 rounded-lg border border-border bg-surface shadow-xl",
+          widthClass,
+        ].join(" ")}
+      >
         <div className="flex items-center justify-between gap-3 border-b border-border px-4 py-3">
           <div className="text-sm font-semibold text-fg">{title}</div>
           <button

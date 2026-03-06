@@ -10,6 +10,10 @@ import { useAppState } from "../../state/AppState";
 import { Button } from "../components/Button";
 import { Input } from "../components/Input";
 import { Textarea } from "../components/Textarea";
+import {
+  ASPECT_RATIO_PRESETS,
+  findAspectRatioPresetByDimensions,
+} from "../data/aspectRatioPresets";
 
 type Revision = {
   id: string;
@@ -50,11 +54,14 @@ export function ShotPage() {
   const [variantPath, setVariantPath] = useState<string | null>(null);
   const [diff, setDiff] = useState<DiffResult | null>(null);
   const [diffTitle, setDiffTitle] = useState<string>("");
+  const [selectedAspectPresetId, setSelectedAspectPresetId] = useState("");
 
   const shotDirArgs = useMemo(() => {
     if (!projectDir || !sceneId || !shotId) return null;
     return { project_dir: projectDir, scene_id: sceneId, shot_id: shotId };
   }, [projectDir, sceneId, shotId]);
+
+  const promptFormat = shot?.promptFormat ?? "advanced";
 
   useEffect(() => {
     if (!projectDir) return;
@@ -98,11 +105,23 @@ export function ShotPage() {
       .catch(() => setWorkflows([]));
   }, [projectDir, workflowScope]);
 
+  const shotAspectPreset = useMemo(
+    () => findAspectRatioPresetByDimensions(shot?.params.width, shot?.params.height),
+    [shot?.params.height, shot?.params.width],
+  );
+  useEffect(() => {
+    const target = shotAspectPreset?.id ?? "";
+    if (target !== selectedAspectPresetId) {
+      setSelectedAspectPresetId(target);
+    }
+  }, [shotAspectPreset?.id, selectedAspectPresetId]);
+
   async function saveShot() {
     if (!shotDirArgs || !shot) return;
     setErr(null);
     setBusy(true);
     try {
+      const effectiveNegative = promptFormat === "simple" ? "" : negative;
       const updated = await cmd<Shot>("update_shot_fields", {
         ...shotDirArgs,
         shot: { ...shot, updatedAt: new Date().toISOString() },
@@ -116,8 +135,11 @@ export function ShotPage() {
       await cmd<void>("write_prompt_text", {
         ...shotDirArgs,
         kind: "negative",
-        text: negative,
+        text: effectiveNegative,
       });
+      if (promptFormat === "simple" && negative) {
+        setNegative("");
+      }
       const r = await cmd<Revision[]>("list_revisions", shotDirArgs);
       setRevisions(r);
     } catch (e) {
@@ -223,7 +245,7 @@ export function ShotPage() {
     try {
       const mapping: Record<string, string> = {
         positive,
-        negative,
+        negative: promptFormat === "simple" ? "" : negative,
         seed: String(shot?.params.seed ?? ""),
         steps: String(shot?.params.steps ?? ""),
         cfg: String(shot?.params.cfg ?? ""),
@@ -244,6 +266,25 @@ export function ShotPage() {
       setBusy(false);
     }
   }
+
+  const applyAspectRatioPreset = (presetId: string) => {
+    setSelectedAspectPresetId(presetId);
+    if (!presetId) return;
+    const preset = ASPECT_RATIO_PRESETS.find((item) => item.id === presetId);
+    if (!preset) return;
+    setShot((current) =>
+      current
+        ? {
+            ...current,
+            params: {
+              ...current.params,
+              width: preset.width,
+              height: preset.height,
+            },
+          }
+        : current,
+    );
+  };
 
   if (!shotDirArgs) {
     return (
@@ -339,44 +380,108 @@ export function ShotPage() {
 
       <div className="mt-6 grid grid-cols-1 gap-4 lg:grid-cols-3">
         <div className="rounded-lg border border-border bg-surface p-4 lg:col-span-2">
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+          <div className="flex items-start justify-between gap-3">
             <div>
-              <div className="flex items-center justify-between">
-                <div className="text-sm font-semibold text-fg">
-                  Positive prompt
-                </div>
-                <Button variant="secondary" onClick={() => copy(positive)}>
-                  Copy
+              <div className="text-xs font-medium text-muted-2">Prompt type</div>
+              <div className="mt-1 grid grid-cols-2 gap-2">
+                <Button
+                  variant={promptFormat === "simple" ? "primary" : "secondary"}
+                  onClick={() =>
+                    setShot((s) => (s ? { ...s, promptFormat: "simple" } : s))
+                  }
+                  disabled={busy}
+                >
+                  Simple
                 </Button>
+                <Button
+                  variant={promptFormat === "advanced" ? "primary" : "secondary"}
+                  onClick={() =>
+                    setShot((s) => (s ? { ...s, promptFormat: "advanced" } : s))
+                  }
+                  disabled={busy}
+                >
+                  Advanced
+                </Button>
+              </div>
+            </div>
+            <Button
+              variant="secondary"
+              onClick={() => {
+                if (promptFormat === "simple") {
+                  void copy(positive);
+                  return;
+                }
+                void copy(`Positive:\n${positive}\n\nNegative:\n${negative}`);
+              }}
+            >
+              Copy
+            </Button>
+          </div>
+
+          {promptFormat === "simple" ? (
+            <div className="mt-4">
+              <div className="text-sm font-semibold text-fg">
+                Simple prompt
               </div>
               <div className="mt-2">
                 <Textarea
                   value={positive}
                   onChange={setPositive}
-                  placeholder="Write a positive prompt."
+                  placeholder="Write a prompt."
                   rows={14}
                 />
               </div>
             </div>
-            <div>
-              <div className="flex items-center justify-between">
-                <div className="text-sm font-semibold text-fg">
-                  Negative prompt
+          ) : (
+            <div className="mt-4 grid grid-cols-1 gap-4 md:grid-cols-2">
+              <div>
+                <div className="flex items-center justify-between gap-3">
+                  <div className="text-sm font-semibold text-fg">
+                    Positive prompt
+                  </div>
+                  <Button
+                    variant="secondary"
+                    className="px-2 py-1 text-xs"
+                    disabled={busy}
+                    onClick={() => void copy(positive)}
+                  >
+                    Copy +
+                  </Button>
                 </div>
-                <Button variant="secondary" onClick={() => copy(negative)}>
-                  Copy
-                </Button>
+                <div className="mt-2">
+                  <Textarea
+                    value={positive}
+                    onChange={setPositive}
+                    placeholder="Write a positive prompt."
+                    rows={14}
+                  />
+                </div>
               </div>
-              <div className="mt-2">
-                <Textarea
-                  value={negative}
-                  onChange={setNegative}
-                  placeholder="Write a negative prompt."
-                  rows={14}
-                />
+              <div>
+                <div className="flex items-center justify-between gap-3">
+                  <div className="text-sm font-semibold text-fg">
+                    Negative prompt
+                  </div>
+                  <Button
+                    variant="secondary"
+                    className="px-2 py-1 text-xs"
+                    disabled={busy}
+                    onClick={() => void copy(negative)}
+                  >
+                    Copy -
+                  </Button>
+                </div>
+                <div className="mt-2">
+                  <Textarea
+                    value={negative}
+                    onChange={setNegative}
+                    placeholder="Write a negative prompt."
+                    rows={14}
+                  />
+                </div>
               </div>
             </div>
-          </div>
+          )}
 
           <div className="mt-4 border-t border-border pt-4">
             <div className="text-sm font-semibold text-fg">Metadata</div>
@@ -412,6 +517,26 @@ export function ShotPage() {
               </div>
             </div>
             <div className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-3">
+              <div className="md:col-span-3">
+                <div className="text-xs font-medium text-muted-2">
+                  Aspect ratio preset
+                </div>
+                <div className="mt-1">
+                  <select
+                    value={selectedAspectPresetId}
+                    onChange={(e) => applyAspectRatioPreset(e.target.value)}
+                    className="w-full rounded-md border border-border bg-surface px-3 py-2 text-sm text-fg focus:outline-none focus:ring-2 focus:ring-accent-ring"
+                  >
+                    <option value="">Manual / custom</option>
+                    {ASPECT_RATIO_PRESETS.map((preset) => (
+                      <option key={preset.id} value={preset.id}>
+                        {preset.label}
+                        {preset.description ? ` · ${preset.description}` : ""}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
               <div>
                 <div className="text-xs font-medium text-muted-2">Width</div>
                 <div className="mt-1">

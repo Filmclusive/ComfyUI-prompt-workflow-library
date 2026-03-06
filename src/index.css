@@ -111,3 +111,11 @@ body,
 #root {
   height: 100%;
 }
+
+.fc-line-clamp-2 {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+  word-break: break-word;
+}

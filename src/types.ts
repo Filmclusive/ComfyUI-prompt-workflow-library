@@ -38,6 +38,7 @@ export type Shot = {
   number: number;
   title: string;
   status: ShotStatus;
+  promptFormat?: "simple" | "advanced";
   notes: string;
   tags: string[];
   params: ShotParams;

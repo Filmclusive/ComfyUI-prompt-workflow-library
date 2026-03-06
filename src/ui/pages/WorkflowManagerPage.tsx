@@ -8,6 +8,26 @@ import { useAppState } from "../../state/AppState";
 import { open } from "@tauri-apps/api/dialog";
 import { appWindow } from "@tauri-apps/api/window";
 import { writeText } from "@tauri-apps/api/clipboard";
+import filmclusiveIcon from "../../assets/filmclusive-app-icon.png";
+
+const workflowTypeOptions = [
+  { value: "all", label: "All types" },
+  { value: "textToImage", label: "Text to image" },
+  { value: "imageToImage", label: "Image to image" },
+  { value: "videoToVideo", label: "Video to video" },
+  { value: "motionCapture", label: "Motion capture" },
+  { value: "textToVideo", label: "Text to video" },
+  { value: "other", label: "Other" },
+] as const;
+
+const loraFilterOptions = [
+  { value: "all", label: "Any LoRA" },
+  { value: "with", label: "With LoRA" },
+  { value: "without", label: "Without LoRA" },
+] as const;
+
+type WorkflowTypeFilter = (typeof workflowTypeOptions)[number]["value"];
+type LoraFilter = (typeof loraFilterOptions)[number]["value"];
 
 export function WorkflowManagerPage() {
   const { currentProjectDir, workspaceScope, settings } = useAppState();
@@ -21,6 +41,12 @@ export function WorkflowManagerPage() {
   const [actionBusy, setActionBusy] = useState(false);
   const [actionErr, setActionErr] = useState<string | null>(null);
   const [actionNotice, setActionNotice] = useState<ReactNode | null>(null);
+  const [importOpen, setImportOpen] = useState(false);
+  const [modelFilter, setModelFilter] = useState("all");
+  const [approvalFilter, setApprovalFilter] =
+    useState<"all" | "approved" | "custom">("all");
+  const [typeFilter, setTypeFilter] = useState<WorkflowTypeFilter>("all");
+  const [loraFilter, setLoraFilter] = useState<LoraFilter>("all");
 
   const resolvedProjectDir = useMemo(() => {
     if (workspaceScope !== "project") return null;
@@ -71,6 +97,7 @@ export function WorkflowManagerPage() {
         workflow_json_path: p,
       });
       setJsonPath("");
+      setImportOpen(false);
       await refresh();
     } catch (e) {
       setErr(String(e));
@@ -137,25 +164,174 @@ export function WorkflowManagerPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  const availableModels = useMemo(() => {
+    const models = new Set<string>();
+    items.forEach((w) => {
+      getModelNames(w.tags).forEach((model) => models.add(model));
+    });
+    return Array.from(models).sort((a, b) => a.localeCompare(b));
+  }, [items]);
+
+  useEffect(() => {
+    if (modelFilter === "all") return;
+    if (!availableModels.includes(modelFilter)) {
+      setModelFilter("all");
+    }
+  }, [modelFilter, availableModels]);
+
+  const filteredItems = useMemo(() => {
+    return items.filter((w) => {
+      const models = getModelNames(w.tags);
+      const matchesModel =
+        modelFilter === "all" || models.includes(modelFilter);
+      const isApproved = w.tags.includes("filmclusive-approved");
+      const matchesApproval =
+        approvalFilter === "all" ||
+        (approvalFilter === "approved" && isApproved) ||
+        (approvalFilter === "custom" && !isApproved);
+      const workflowType = getWorkflowType(w);
+      const matchesType = typeFilter === "all" || workflowType === typeFilter;
+      const usesLoRA = workflowUsesLoRA(w);
+      const matchesLoRA =
+        loraFilter === "all" ||
+        (loraFilter === "with" && usesLoRA) ||
+        (loraFilter === "without" && !usesLoRA);
+      return matchesModel && matchesApproval && matchesType && matchesLoRA;
+    });
+  }, [items, modelFilter, approvalFilter, typeFilter, loraFilter]);
+
   const approved = useMemo(
-    () => items.filter((w) => w.tags.includes("filmclusive-approved")),
-    [items],
+    () => filteredItems.filter((w) => w.tags.includes("filmclusive-approved")),
+    [filteredItems],
   );
   const custom = useMemo(
-    () => items.filter((w) => !w.tags.includes("filmclusive-approved")),
-    [items],
+    () => filteredItems.filter((w) => !w.tags.includes("filmclusive-approved")),
+    [filteredItems],
   );
 
   const comfyUiConfigured = Boolean(
     settings?.comfyui.appPath?.trim(),
   );
 
-  function modelsFromTags(tags: string[]) {
-    const models = tags
+  function getModelNames(tags: string[]) {
+    return tags
       .filter((t) => t.startsWith("model:"))
       .map((t) => t.slice("model:".length))
       .filter(Boolean);
-    return models.length ? models.join(", ") : null;
+  }
+
+  function deriveWorkflowTypeFromTag(tags: string[]): WorkflowTypeFilter | null {
+    for (const tag of tags) {
+      const lower = tag.toLowerCase();
+      if (!lower.startsWith("type:")) continue;
+      const value = lower.slice("type:".length);
+      if (value.includes("text") && value.includes("image")) {
+        return "textToImage";
+      }
+      if (value.includes("image") && value.includes("image")) {
+        return "imageToImage";
+      }
+      if (value.includes("text") && value.includes("video")) {
+        return "textToVideo";
+      }
+      if (value.includes("video")) {
+        return "videoToVideo";
+      }
+      if (value.includes("motion")) {
+        return "motionCapture";
+      }
+    }
+    return null;
+  }
+
+  function getWorkflowType(w: WorkflowSummary): WorkflowTypeFilter {
+    const fromTag = deriveWorkflowTypeFromTag(w.tags);
+    if (fromTag) {
+      return fromTag;
+    }
+    const title = w.title.toLowerCase();
+    const matches = (keywords: string[]) => keywords.some((kw) => title.includes(kw));
+    if (matches(["text to image", "text-to-image", "text2image", "text to image"])) {
+      return "textToImage";
+    }
+    if (
+      matches([
+        "image to image",
+        "image (edit)",
+        "image edit",
+        "img2img",
+        "image->image",
+      ])
+    ) {
+      return "imageToImage";
+    }
+    if (matches(["text to video", "text-to-video", "text2video"])) {
+      return "textToVideo";
+    }
+    if (matches(["video", "wan"]) && !matches(["motion"])) {
+      return "videoToVideo";
+    }
+    if (matches(["motion capture", "motion", "mocap"])) {
+      return "motionCapture";
+    }
+    return "other";
+  }
+
+  function workflowUsesLoRA(w: WorkflowSummary) {
+    const title = w.title.toLowerCase();
+    return (
+      w.tags.some((tag) => tag.toLowerCase().includes("lora")) ||
+      title.includes("lora")
+    );
+  }
+
+  function formatUpdatedDate(value: string) {
+    const parsed = new Date(value);
+    if (Number.isNaN(parsed.getTime())) return value;
+    return parsed.toLocaleDateString(undefined, {
+      month: "numeric",
+      day: "numeric",
+      year: "numeric",
+    });
+  }
+
+  function renderWorkflowItem(w: WorkflowSummary) {
+    const models = getModelNames(w.tags);
+    const modelLabel = models.length ? models.join(", ") : null;
+    const updatedLabel = formatUpdatedDate(w.updatedAt);
+    const isApproved = w.tags.includes("filmclusive-approved");
+
+    return (
+      <button
+        type="button"
+        key={w.id}
+        className="w-full rounded-md border border-border bg-surface px-3 py-2 text-left hover:bg-surface-hover focus:outline-none focus:ring-2 focus:ring-accent-ring"
+        onClick={() => {
+          setSelected(w);
+          setActionErr(null);
+          setActionNotice(null);
+        }}
+      >
+        <div className="flex items-start justify-between gap-3">
+          <div className="flex items-start gap-3">
+            {isApproved && (
+              <img
+                src={filmclusiveIcon}
+                alt="Filmclusive icon"
+                className="h-5 w-5 flex-shrink-0 rounded-md object-cover"
+              />
+            )}
+            <span className="text-sm font-medium text-fg">{w.title}</span>
+          </div>
+          {modelLabel && (
+            <span className="text-xs font-medium text-muted-2 whitespace-nowrap">
+              {modelLabel}
+            </span>
+          )}
+        </div>
+        <div className="mt-1 text-xs text-muted-2">Updated {updatedLabel}</div>
+      </button>
+    );
   }
 
   async function copyWorkflowJson(w: WorkflowSummary) {
@@ -244,10 +420,28 @@ export function WorkflowManagerPage() {
   }
 
   return (
-    <div className="h-[calc(100vh-0px)] overflow-hidden p-4 max-w-5xl flex flex-col">
-      <div className="text-lg font-semibold text-fg">Workflows</div>
-      <div className="mt-2 text-sm text-muted">
-        Import ComfyUI workflow JSON files and add metadata for variable injection.
+    <div className="p-4 w-full max-w-lg mx-auto min-w-0">
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <div className="text-lg font-semibold text-fg">Workflows</div>
+          <div className="mt-2 text-sm text-muted">
+            Import ComfyUI workflow JSON files and add metadata for variable injection.
+          </div>
+          <div className="mt-1 text-xs text-muted-2">
+            Scope: {scope === "global" ? "Global" : "Project"}
+          </div>
+        </div>
+        <Button
+          variant="secondary"
+          onClick={() => setImportOpen(true)}
+          disabled={
+            workspaceScope === "project" &&
+            !currentProjectDir
+          }
+          className="px-3 py-2"
+        >
+          New +
+        </Button>
       </div>
 
       {err && (
@@ -256,156 +450,182 @@ export function WorkflowManagerPage() {
         </div>
       )}
 
-      <div className="mt-4 flex items-center gap-2">
-        <div className="text-xs font-medium text-muted-2">
-          Scope: {scope === "global" ? "Global" : "Project"}
-        </div>
-        <Button variant="secondary" onClick={refresh} disabled={busy}>
-          Refresh
-        </Button>
-      </div>
-
       {workspaceScope === "project" && !currentProjectDir && (
         <div className="mt-3 rounded-md border border-warning-border bg-warning-surface px-3 py-2 text-sm text-warning-fg">
           Select or create a project from the sidebar to manage project workflows.
         </div>
       )}
 
-      <div className="mt-6 flex-1 min-h-0 grid grid-cols-1 gap-4 md:grid-cols-2">
-        <div className="rounded-lg border border-border bg-surface p-4">
-          <div className="text-sm font-semibold text-fg">
-            Import and save
-          </div>
-          <div className="mt-3 space-y-3">
-            <div
-              className={[
-                "rounded-md border border-dashed px-3 py-3 text-sm text-muted",
-                dropActive
-                  ? "border-accent bg-accent/10 text-fg"
-                  : "border-border bg-surface",
-              ].join(" ")}
+      <div className="mt-6 space-y-4">
+        <div className="flex flex-wrap items-end gap-4 rounded-lg border border-border bg-surface px-3 py-3">
+          <div className="min-w-[140px] flex-1">
+            <label
+              htmlFor="workflow-model-filter"
+              className="text-xs font-medium text-muted-2"
             >
-              Drag a workflow JSON into this window to select it, or choose a file.
-            </div>
-            <div>
-              <div className="text-xs font-medium text-muted-2">Title</div>
-              <div className="mt-1">
-                <Input value={title} onChange={setTitle} />
-              </div>
-            </div>
-            <div>
-              <div className="text-xs font-medium text-muted-2">
-                Workflow JSON file
-              </div>
-              <div className="mt-1 flex items-center gap-2">
-                <Input
-                  value={jsonPath}
-                  onChange={setJsonPath}
-                  placeholder="/path/to/workflow.json"
-                />
-                <Button
-                  variant="secondary"
-                  onClick={chooseWorkflowFile}
-                  disabled={busy || (workspaceScope === "project" && !currentProjectDir)}
-                >
-                  Choose
-                </Button>
-              </div>
-            </div>
-            <Button
-              onClick={importWorkflow}
-              disabled={
-                busy ||
-                !jsonPath.trim() ||
-                (workspaceScope === "project" && !currentProjectDir)
+              Model
+            </label>
+            <select
+              id="workflow-model-filter"
+              value={modelFilter}
+              onChange={(event) => setModelFilter(event.target.value)}
+              className="mt-1 w-full rounded border border-border bg-surface px-2 py-1 text-sm text-fg focus:outline-none focus:ring-2 focus:ring-accent-ring"
+            >
+              <option value="all">All models</option>
+              {availableModels.map((model) => (
+                <option key={model} value={model}>
+                  {model}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="min-w-[140px] flex-1">
+            <label
+              htmlFor="workflow-approval-filter"
+              className="text-xs font-medium text-muted-2"
+            >
+              Approval
+            </label>
+            <select
+              id="workflow-approval-filter"
+              value={approvalFilter}
+              onChange={(event) =>
+                setApprovalFilter(event.target.value as "all" | "approved" | "custom")
               }
+              className="mt-1 w-full rounded border border-border bg-surface px-2 py-1 text-sm text-fg focus:outline-none focus:ring-2 focus:ring-accent-ring"
             >
-              Import and save
-            </Button>
+              <option value="all">All workflows</option>
+              <option value="approved">Filmclusive approved</option>
+              <option value="custom">Custom</option>
+            </select>
+          </div>
+          <div className="min-w-[140px] flex-1">
+            <label
+              htmlFor="workflow-type-filter"
+              className="text-xs font-medium text-muted-2"
+            >
+              Workflow type
+            </label>
+            <select
+              id="workflow-type-filter"
+              value={typeFilter}
+              onChange={(event) =>
+                setTypeFilter(event.target.value as WorkflowTypeFilter)
+              }
+              className="mt-1 w-full rounded border border-border bg-surface px-2 py-1 text-sm text-fg focus:outline-none focus:ring-2 focus:ring-accent-ring"
+            >
+              {workflowTypeOptions.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="min-w-[140px] flex-1">
+            <label
+              htmlFor="workflow-lora-filter"
+              className="text-xs font-medium text-muted-2"
+            >
+              LoRA
+            </label>
+            <select
+              id="workflow-lora-filter"
+              value={loraFilter}
+              onChange={(event) =>
+                setLoraFilter(event.target.value as LoraFilter)
+              }
+              className="mt-1 w-full rounded border border-border bg-surface px-2 py-1 text-sm text-fg focus:outline-none focus:ring-2 focus:ring-accent-ring"
+            >
+              {loraFilterOptions.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
           </div>
         </div>
-
-        <div className="rounded-lg border border-border bg-surface p-4 flex flex-col min-h-0">
-          <div className="text-sm font-semibold text-fg">Saved</div>
-          <div className="mt-3 flex-1 min-h-0 overflow-auto pr-1 space-y-2">
-            {approved.length > 0 && (
-              <div className="pt-1">
-                <div className="text-xs font-semibold text-fg">
-                  Filmclusive approved
-                </div>
-                <div className="mt-2 space-y-2">
-                  {approved.map((w) => (
-                    <button
-                      type="button"
-                      key={w.id}
-                      className="w-full rounded-md border border-border bg-surface px-3 py-2 text-left hover:bg-surface-hover focus:outline-none focus:ring-2 focus:ring-accent-ring"
-                      onClick={() => {
-                        setSelected(w);
-                        setActionErr(null);
-                        setActionNotice(null);
-                      }}
-                    >
-                      <div className="text-sm font-medium text-fg">
-                        {w.title}
-                      </div>
-                      <div className="mt-1 text-xs text-muted-2">
-                        Updated {new Date(w.updatedAt).toLocaleString()}
-                      </div>
-                      {modelsFromTags(w.tags) && (
-                        <div className="mt-1 text-xs text-muted-2">
-                          Models {modelsFromTags(w.tags)}
-                        </div>
-                      )}
-                      <div className="mt-1 text-xs text-muted-2">
-                        {w.tags.length ? w.tags.join(", ") : "No tags"}
-                      </div>
-                    </button>
-                  ))}
-                </div>
-              </div>
-            )}
-            {custom.length > 0 && (
-              <div className="pt-2">
-                <div className="text-xs font-semibold text-fg">
-                  Custom
-                </div>
-                <div className="mt-2 space-y-2">
-                  {custom.map((w) => (
-                    <button
-                      type="button"
-                      key={w.id}
-                      className="w-full rounded-md border border-border bg-surface px-3 py-2 text-left hover:bg-surface-hover focus:outline-none focus:ring-2 focus:ring-accent-ring"
-                      onClick={() => {
-                        setSelected(w);
-                        setActionErr(null);
-                        setActionNotice(null);
-                      }}
-                    >
-                      <div className="text-sm font-medium text-fg">
-                        {w.title}
-                      </div>
-                      <div className="mt-1 text-xs text-muted-2">
-                        Updated {new Date(w.updatedAt).toLocaleString()}
-                      </div>
-                      {modelsFromTags(w.tags) && (
-                        <div className="mt-1 text-xs text-muted-2">
-                          Models {modelsFromTags(w.tags)}
-                        </div>
-                      )}
-                      <div className="mt-1 text-xs text-muted-2">
-                        {w.tags.length ? w.tags.join(", ") : "No tags"}
-                      </div>
-                    </button>
-                  ))}
-                </div>
-              </div>
-            )}
-            {items.length === 0 && (
-              <div className="text-sm text-muted">No workflows yet.</div>
-            )}
+        {items.length === 0 ? (
+          <div className="rounded-lg border border-border bg-surface px-3 py-3 text-sm text-muted">
+            No workflows yet. Use the New + button to import one.
           </div>
-        </div>
+        ) : filteredItems.length === 0 ? (
+          <div className="rounded-lg border border-border bg-surface px-3 py-3 text-sm text-muted">
+            No workflows match the current filters.
+          </div>
+        ) : null}
+        {approved.length > 0 && (
+          <div className="rounded-lg border border-border bg-surface p-3">
+            <div className="text-sm font-semibold text-fg">
+              Filmclusive approved
+            </div>
+            <div className="mt-2 space-y-2">{approved.map(renderWorkflowItem)}</div>
+          </div>
+        )}
+        {custom.length > 0 && (
+          <div className="rounded-lg border border-border bg-surface p-3">
+            <div className="text-sm font-semibold text-fg">Custom</div>
+            <div className="mt-2 space-y-2">{custom.map(renderWorkflowItem)}</div>
+          </div>
+        )}
       </div>
+
+      <Modal
+        open={importOpen}
+        title="Import workflow"
+        size="md"
+        onClose={() => {
+          if (busy) return;
+          setImportOpen(false);
+        }}
+      >
+        <div className="space-y-3">
+          <div
+            className={[
+              "rounded-md border border-dashed px-3 py-3 text-sm text-muted",
+              dropActive
+                ? "border-accent bg-accent/10 text-fg"
+                : "border-border bg-surface",
+            ].join(" ")}
+          >
+            Drag a workflow JSON into this window to select it, or choose a file.
+          </div>
+          <div>
+            <div className="text-xs font-medium text-muted-2">Title</div>
+            <div className="mt-1">
+              <Input value={title} onChange={setTitle} />
+            </div>
+          </div>
+          <div>
+            <div className="text-xs font-medium text-muted-2">
+              Workflow JSON file
+            </div>
+            <div className="mt-1 flex items-center gap-2">
+              <Input
+                value={jsonPath}
+                onChange={setJsonPath}
+                placeholder="/path/to/workflow.json"
+              />
+              <Button
+                variant="secondary"
+                onClick={chooseWorkflowFile}
+                disabled={busy || (workspaceScope === "project" && !currentProjectDir)}
+              >
+                Choose
+              </Button>
+            </div>
+          </div>
+          <Button
+            onClick={importWorkflow}
+            disabled={
+              busy ||
+              !jsonPath.trim() ||
+              (workspaceScope === "project" && !currentProjectDir)
+            }
+          >
+            Import and save
+          </Button>
+        </div>
+      </Modal>
 
       <Modal
         open={Boolean(selected)}

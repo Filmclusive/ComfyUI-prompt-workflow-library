@@ -98,6 +98,8 @@ pub struct Shot {
     pub number: u32,
     pub title: String,
     pub status: ShotStatus,
+    #[serde(default)]
+    pub prompt_format: ShotPromptFormat,
     pub notes: String,
     pub tags: Vec<String>,
     pub params: ShotParams,
@@ -105,6 +107,19 @@ pub struct Shot {
     pub workflow_ref: Option<WorkflowRef>,
     pub created_at: IsoDateTime,
     pub updated_at: IsoDateTime,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum ShotPromptFormat {
+    Simple,
+    Advanced,
+}
+
+impl Default for ShotPromptFormat {
+    fn default() -> Self {
+        Self::Advanced
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

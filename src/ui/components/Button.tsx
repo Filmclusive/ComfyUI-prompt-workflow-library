@@ -8,7 +8,7 @@ export function Button({
   className,
 }: {
   children: React.ReactNode;
-  onClick?: () => void;
+  onClick?: (event: React.MouseEvent<HTMLButtonElement>) => void;
   variant?: "primary" | "secondary" | "danger";
   disabled?: boolean;
   className?: string;

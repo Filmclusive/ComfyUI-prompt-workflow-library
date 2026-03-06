@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { save } from "@tauri-apps/api/dialog";
+import { writeText } from "@tauri-apps/api/clipboard";
 import { cmd } from "../../lib/tauri";
 import { useAppState } from "../../state/AppState";
 import type { Project, Scene, Shot } from "../../types";
@@ -24,6 +25,7 @@ export function ProjectPage() {
   const [err, setErr] = useState<string | null>(null);
   const [includeHistory, setIncludeHistory] = useState(false);
   const [includeAttachments, setIncludeAttachments] = useState(true);
+  const [copyingShotId, setCopyingShotId] = useState<string | null>(null);
 
   const selectedShots = useMemo(
     () => (selectedSceneId ? shotsBySceneId[selectedSceneId] ?? [] : []),
@@ -127,6 +129,33 @@ export function ProjectPage() {
     }
   }
 
+  async function copyShotPrompt(shot: Shot) {
+    if (!currentProjectDir) return;
+    setErr(null);
+    setCopyingShotId(shot.id);
+    try {
+      const args = {
+        project_dir: currentProjectDir,
+        scene_id: shot.sceneId,
+        shot_id: shot.id,
+      };
+      const [p, n] = await Promise.all([
+        cmd<string>("read_prompt_text", { ...args, kind: "positive" }),
+        cmd<string>("read_prompt_text", { ...args, kind: "negative" }),
+      ]);
+      const format = shot.promptFormat ?? "advanced";
+      const text =
+        format === "simple"
+          ? p
+          : `Positive:\n${p}\n\nNegative:\n${n}`;
+      await writeText(text);
+    } catch (e) {
+      setErr(String(e));
+    } finally {
+      setCopyingShotId(null);
+    }
+  }
+
   if (!currentProjectDir) {
     return (
       <div className="p-4 max-w-4xl">
@@ -152,6 +181,15 @@ export function ProjectPage() {
         <div className="flex items-center gap-2">
           <Button variant="secondary" onClick={exportBundle} disabled={busy}>
             Export
+          </Button>
+          <Button
+            variant="secondary"
+            onClick={() => {
+              setWorkspaceScope("project");
+              nav("/prompts");
+            }}
+          >
+            Prompts
           </Button>
           <Button
             variant="secondary"
@@ -224,7 +262,21 @@ export function ProjectPage() {
                   <div className="text-sm font-medium text-fg">
                     Shot {String(shot.number).padStart(3, "0")}
                   </div>
-                  <div className="text-xs text-muted-2">{shot.status}</div>
+                  <div className="flex items-center gap-2">
+                    <Button
+                      variant="secondary"
+                      className="px-2 py-1 text-xs"
+                      disabled={busy || copyingShotId === shot.id}
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        void copyShotPrompt(shot);
+                      }}
+                    >
+                      Copy
+                    </Button>
+                    <div className="text-xs text-muted-2">{shot.status}</div>
+                  </div>
                 </div>
                 <div className="mt-1 text-sm text-muted">
                   {shot.title || "Untitled"}

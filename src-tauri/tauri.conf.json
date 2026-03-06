@@ -44,7 +44,12 @@
     "bundle": {
       "active": false,
       "targets": "all",
-      "identifier": "com.filmclusive.library"
+      "identifier": "com.filmclusive.library",
+      "icon": [
+        "icons/icon.icns",
+        "icons/icon.ico",
+        "icons/icon.png"
+      ]
     }
   }
 }
