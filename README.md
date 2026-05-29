@@ -1,6 +1,19 @@
+
 # Filmclusive Prompt + Workflow Library (V1 MVP)
 
 Offline, Git-friendly prompt + ComfyUI workflow library for filmmakers and production teams, organized as:
+
+
+<img width="1220" height="824" alt="Screenshot 2026-05-29 at 9 52 52 AM" src="https://github.com/user-attachments/assets/802ba768-b93b-40c1-aae3-83dbcdc4b09a" />
+
+<img width="1220" height="1061" alt="Screenshot 2026-05-29 at 9 54 13 AM" src="https://github.com/user-attachments/assets/efc09739-0a7f-41e4-affb-809d53df3e05" />
+
+
+<img width="1236" height="1062" alt="Screenshot 2026-05-29 at 9 54 54 AM" src="https://github.com/user-attachments/assets/ba23f8a6-76d2-4360-a558-41caccf349dc" />
+
+<img width="1229" height="1061" alt="Screenshot 2026-05-29 at 9 55 13 AM" src="https://github.com/user-attachments/assets/4ce27ceb-b941-4e30-a12e-9ec7ca619bcd" />
+
+
 
 **Project → Scene → Shot**
 
