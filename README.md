@@ -2,6 +2,13 @@
 # Filmclusive Prompt + Workflow Library (V1 MVP)
 
 Offline, Git-friendly prompt + ComfyUI workflow library for filmmakers and production teams, organized as:
+**Project → Scene → Shot**
+
+Each shot stores:
+- Positive + negative prompts (`positive.txt`, `negative.txt`)
+- Core generation params (width/height/seed/steps/cfg/sampler/model name)
+- Attachments (images/videos copied into the project folder)
+- Linear history snapshots with diff + restore
 
 
 <img width="1220" height="824" alt="Screenshot 2026-05-29 at 9 52 52 AM" src="https://github.com/user-attachments/assets/802ba768-b93b-40c1-aae3-83dbcdc4b09a" />
@@ -15,13 +22,6 @@ Offline, Git-friendly prompt + ComfyUI workflow library for filmmakers and produ
 
 
 
-**Project → Scene → Shot**
-
-Each shot stores:
-- Positive + negative prompts (`positive.txt`, `negative.txt`)
-- Core generation params (width/height/seed/steps/cfg/sampler/model name)
-- Attachments (images/videos copied into the project folder)
-- Linear history snapshots with diff + restore
 - Optional workflow selection + ComfyUI workflow template injection
 
 ## Project storage layout
